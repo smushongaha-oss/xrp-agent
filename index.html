@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>XRP SELF-TEACH AGENT</title>
+<style>
+:root{--bg:#000;--line:#0f3d0f;--text:#b6ffb6;--dim:#1a8f1a;--buy:#00ff66;--sell:#ff3333;--cyan:#00ff9c;--mono:"Courier New",Consolas,monospace}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#000;color:var(--text);font-family:var(--mono);min-height:100vh}
+header,.bar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;padding:12px 16px;border-bottom:1px solid var(--line)}
+.logo{width:36px;height:36px;border:1px solid var(--buy);display:grid;place-items:center;font-weight:900;color:var(--buy)}
+h1{font-size:13px;letter-spacing:.1em}h1 small{display:block;color:var(--dim);font-size:10px;margin-top:3px}
+.live{margin-left:auto;display:flex;gap:10px;align-items:center;border:1px solid var(--line);padding:6px 10px}
+.dot{width:8px;height:8px;border-radius:50%;background:#600}.dot.on{background:var(--buy);box-shadow:0 0 8px var(--buy)}
+.px{font-size:16px;color:var(--buy)}
+label{font-size:11px;color:var(--dim);display:flex;gap:6px;align-items:center}
+select,input,button{background:#001a00;color:var(--buy);border:1px solid var(--line);padding:5px 8px;font-family:var(--mono);font-size:11px}
+button{cursor:pointer;border-color:#3dff3d}
+.note{padding:8px 16px;color:#c8ff00;font-size:11px;border-bottom:1px solid var(--line)}
+.grid{display:grid;grid-template-columns:1.5fr 340px;gap:12px;padding:12px 16px}
+@media(max-width:1000px){.grid{grid-template-columns:1fr}}
+.card{border:1px solid var(--line);padding:12px;background:#041004}
+.card.buy{border-color:var(--buy)}.card.sell{border-color:var(--sell)}
+h2{font-size:10px;color:#3dff3d;letter-spacing:.14em;margin-bottom:8px}
+canvas{width:100%;height:340px;background:#000;border:1px solid #062006;display:block}
+.metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:10px}
+.m{border:1px solid var(--line);padding:8px;background:#001000}.m span{display:block;color:var(--dim);font-size:9px}.m b{font-size:13px}
+.pill{display:inline-block;border:1px solid var(--dim);padding:4px 8px;font-weight:900;font-size:12px}
+.pill.BUY{color:var(--buy);border-color:var(--buy)}.pill.SELL{color:var(--sell);border-color:var(--sell)}
+.why,.plan{font-size:11px;color:var(--dim);line-height:1.45;margin-top:8px}
+.kv{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.box{border:1px solid var(--line);padding:8px;background:#000}
+.box i{display:block;color:var(--dim);font-style:normal;font-size:9px}.box em{font-style:normal;font-size:15px}
+.hist,.log{max-height:180px;overflow:auto;font-size:10px}
+.row{display:grid;grid-template-columns:48px 1fr auto;gap:6px;border:1px solid var(--line);padding:6px;margin-top:6px}
+footer{padding:10px 16px;color:var(--dim);font-size:10px}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">AI</div>
+  <h1>XRP SELF-TEACH AGENT<small>paper loop · one variable · no live orders</small></h1>
+  <div class="live"><span class="dot" id="dot"></span><span id="st">boot</span><span class="px" id="px">—</span></div>
+</header>
+<div class="note" id="note">PAPER ONLY. Learns from closed paper trades. Does not place Deriv/Binance orders.</div>
+<div class="bar">
+  <label>TF
+    <select id="interval">
+      <option value="1m">M1</option>
+      <option value="5m" selected>M5</option>
+      <option value="15m">M15</option>
+    </select>
+  </label>
+  <label>ARM AGENT <input type="checkbox" id="armed"></label>
+  <label>AUTO TUNE <input type="checkbox" id="autotune" checked></label>
+  <button id="reset">RESET MEMORY</button>
+</div>
+<div class="grid">
+  <section class="card" id="cc">
+    <h2>// market + open paper</h2>
+    <canvas id="cv" width="1100" height="380"></canvas>
+    <div class="metrics">
+      <div class="m"><span>ZONE</span><b id="zone">—</b></div>
+      <div class="m"><span>CCI</span><b id="cci">—</b></div>
+      <div class="m"><span>WIN RATE</span><b id="wr">—</b></div>
+      <div class="m"><span>EXPECTANCY R</span><b id="exp">—</b></div>
+    </div>
+  </section>
+  <aside>
+    <section class="card" id="ec">
+      <h2>// agent state</h2>
+      <span class="pill WAIT" id="pill">WAIT</span>
+      <div class="why" id="why">Waiting for setup.</div>
+      <div class="kv" style="margin-top:8px">
+        <div class="box"><i>ENTRY</i><em id="en">—</em></div>
+        <div class="box"><i>STOP</i><em id="sl">—</em></div>
+        <div class="box"><i>TARGET</i><em id="tp">—</em></div>
+        <div class="box"><i>R:R</i><em id="rr">—</em></div>
+      </div>
+      <div class="plan" id="plan">Goal: expectancy ≥ 0.20R after 20 closed paper trades. Fail: expectancy &lt; 0 or 4 losses in a row → tune one knob.</div>
+    </section>
+    <section class="card" style="margin-top:12px">
+      <h2>// learned knobs</h2>
+      <div class="plan" id="knobs">—</div>
+    </section>
+    <section class="card" style="margin-top:12px">
+      <h2>// closed paper</h2>
+      <div class="hist" id="hist">NONE</div>
+    </section>
+    <section class="card" style="margin-top:12px">
+      <h2>// lesson log</h2>
+      <div class="log" id="lessons">boot</div>
+    </section>
+  </aside>
+</div>
+<footer>Educational paper agent. Not financial advice. A browser tab is not a 24/7 broker bot.</footer>
+<script>
+const SYM='XRPUSDT', REST='https://api.binance.com', WS='wss://stream.binance.com:9443/ws';
+const LEVELS={inv:1.28,buyL:1.35,buyH:1.39,bo:1.50,cf:1.55,t1:1.65};
+const MEM_KEY='xrp_agent_v1';
+const GOAL={minTrades:20, targetR:0.20, failStreak:4, window:12};
+
+const $=id=>document.getElementById(id);
+const fmt=n=>n==null||!isFinite(n)?'—':(n>=10?n.toFixed(3):n.toFixed(4));
+const logLesson=t=>{const el=$('lessons'); el.textContent=new Date().toLocaleTimeString()+'  '+t+'\n'+el.textContent};
+
+let knobs=loadMem().knobs || {cci:55, slBuf:1.1, proj:2.0, useLevels:true};
+let closed=loadMem().closed || [];
+let open=null, lastKey='', candles=[], lastPx=null, wsK=null, wsT=null;
+
+function loadMem(){try{return JSON.parse(localStorage.getItem(MEM_KEY)||'{}')}catch(e){return {}}}
+function saveMem(){localStorage.setItem(MEM_KEY, JSON.stringify({knobs,closed}))}
+function showKnobs(){
+  $('knobs').textContent=`CCI=${knobs.cci}  SLBUF=${knobs.slBuf}  PROJ=${knobs.proj}  LEVELS=${knobs.useLevels}  closed=${closed.length}`;
+}
+
+function ema(v,p){const k=2/(p+1),o=[];v.forEach((x,i)=>o.push(i?x*k+o[i-1]*(1-k):x));return o}
+function cci(cs,p){
+  const tp=cs.map(c=>(c.high+c.low+c.close)/3),o=Array(cs.length).fill(null);
+  for(let i=p-1;i<cs.length;i++){const s=tp.slice(i-p+1,i+1),m=s.reduce((a,b)=>a+b,0)/p,md=s.reduce((a,b)=>a+Math.abs(b-m),0)/p;o[i]=md?(tp[i]-m)/(0.015*md):0}
+  return o;
+}
+function atr(cs,p){
+  const tr=cs.map((c,i)=>i?Math.max(c.high-c.low,Math.abs(c.high-cs[i-1].close),Math.abs(c.low-cs[i-1].close)):c.high-c.low);
+  const o=Array(cs.length).fill(null);
+  for(let i=p-1;i<cs.length;i++) o[i]=tr.slice(i-p+1,i+1).reduce((a,b)=>a+b,0)/p;
+  return o;
+}
+function rsi(cl,p){
+  const o=Array(cl.length).fill(null); if(cl.length<p+1) return o;
+  let g=0,l=0; for(let i=1;i<=p;i++){const d=cl[i]-cl[i-1]; if(d>=0)g+=d; else l-=d}
+  let ag=g/p,al=l/p; o[p]=al===0?100:100-(100/(1+ag/al));
+  for(let i=p+1;i<cl.length;i++){const d=cl[i]-cl[i-1]; ag=(ag*(p-1)+(d>0?d:0))/p; al=(al*(p-1)+(d<0?-d:0))/p; o[i]=al===0?100:100-(100/(1+ag/al))}
+  return o;
+}
+function pivots(emaArr,lb,minBars,minSize){
+  const hi=[],lo=[];
+  for(let i=lb;i<emaArr.length-lb;i++){
+    const w=emaArr.slice(i-lb,i+lb+1);
+    if(emaArr[i]===Math.max(...w)) hi.push({i,p:emaArr[i]});
+    if(emaArr[i]===Math.min(...w)) lo.push({i,p:emaArr[i]});
+  }
+  const clean=a=>{if(a.length<2)return a; const o=[a[0]]; for(let k=1;k<a.length;k++){const p=o.at(-1); if(a[k].i-p.i>=minBars && Math.abs(a[k].p-p.p)>=minSize) o.push(a[k])} return o};
+  return {hi:clean(hi),lo:clean(lo)};
+}
+function zone(px,r){
+  if(px<LEVELS.inv) return {code:'EXIT',t:'Lost 1.28'};
+  if(r!=null && r>=70 && px>=LEVELS.bo) return {code:'NO_CHASE',t:'Overbought'};
+  if(px>=LEVELS.cf) return {code:'BUY_BREAK',t:'Above 1.55'};
+  if(px>=LEVELS.bo) return {code:'WATCH_BO',t:'Test 1.50'};
+  if(px>=LEVELS.buyL && px<=LEVELS.buyH) return {code:'BUY_DIP',t:'Dip 1.35-1.39'};
+  if(px<LEVELS.buyL) return {code:'WAIT_FLOOR',t:'Under 1.35'};
+  return {code:'MID',t:'Mid range'};
+}
+
+function stats(){
+  if(!closed.length) return {wr:null,exp:null,streak:0};
+  const wins=closed.filter(t=>t.r>0).length;
+  const exp=closed.reduce((a,t)=>a+t.r,0)/closed.length;
+  let streak=0; for(let i=closed.length-1;i>=0;i--){if(closed[i].r<=0)streak++; else break}
+  return {wr:wins/closed.length, exp, streak};
+}
+
+function tune(){
+  if(!$('autotune').checked) return;
+  const s=stats();
+  if(closed.length<GOAL.minTrades && s.streak<GOAL.failStreak) return;
+  const recent=closed.slice(-GOAL.window);
+  const r=recent.reduce((a,t)=>a+t.r,0)/recent.length;
+  if(r>=GOAL.targetR && s.streak<GOAL.failStreak){ logLesson('baseline held. no knob change.'); return; }
+  const kn=['cci','slBuf','proj'][closed.length%3];
+  if(kn==='cci') knobs.cci=Math.min(90,Math.max(35, knobs.cci+(r<0?5:-5)));
+  if(kn==='slBuf') knobs.slBuf=Math.min(2.2,Math.max(0.7, +(knobs.slBuf+(r<0?0.1:-0.1)).toFixed(1)));
+  if(kn==='proj') knobs.proj=Math.min(3.2,Math.max(1.4, +(knobs.proj+(r<0?-0.2:0.1)).toFixed(1)));
+  saveMem(); showKnobs();
+  logLesson('TUNE one variable: '+kn+' → '+knobs[kn]+'  (window R '+r.toFixed(2)+')');
+}
+
+function closeTrade(reason, px){
+  if(!open) return;
+  const risk=Math.abs(open.entry-open.sl)||1e-9;
+  const pnl=open.dir==='BUY'? (px-open.entry) : (open.entry-px);
+  const r=pnl/risk;
+  closed.push({t:new Date().toLocaleTimeString(),dir:open.dir,entry:open.entry,exit:px,r,reason,src:open.src});
+  closed=closed.slice(-80);
+  logLesson((r>0?'WIN ':'LOSS ')+open.dir+' '+r.toFixed(2)+'R  '+reason);
+  open=null; saveMem(); tune();
+}
+
+function manageOpen(px, barHigh, barLow){
+  if(!open) return;
+  if(open.dir==='BUY'){
+    if(barLow<=open.sl) closeTrade('SL', open.sl);
+    else if(barHigh>=open.tp) closeTrade('TP', open.tp);
+  } else {
+    if(barHigh>=open.sl) closeTrade('SL', open.sl);
+    else if(barLow<=open.tp) closeTrade('TP', open.tp);
+  }
+}
+
+function idea(cs){
+  if(cs.length<70) return null;
+  const cl=cs.map(c=>c.close), E=ema(cl,9), C=cci(cs,14), A=atr(cs,14), R=rsi(cl,14);
+  const i=cl.length-1, px=cl[i], lastCci=C[i], lastAtr=A[i], lastR=R[i];
+  if(!lastAtr) return {zone:zone(px,lastR), signal:null, lastCci, lastAtr};
+  const {hi,lo}=pivots(E,4,5,lastAtr*0.4);
+  let signal=null;
+  if(hi.length>=2){
+    const p2=hi.at(-1), p1=hi.at(-2);
+    if(p2.p<p1.p){
+      const age=i-p2.i, fresh=cl[i-1]>=p2.p && px<p2.p;
+      if((age<=4 && px<p2.p || fresh) && lastCci<-knobs.cci){
+        const dist=p2.i-p1.i, slope=(p2.p-p1.p)/dist, projI=p2.i+knobs.proj*dist;
+        const tp=p2.p+slope*(projI-p2.i), sl=Math.max(p2.p,p1.p)+knobs.slBuf*lastAtr;
+        const rr=(px-tp)/Math.max(1e-9,sl-px);
+        if(tp<px && rr>=1.2) signal={dir:'SELL',entry:px,sl,tp,rr,src:'Trend-Fan'};
+      }
+    }
+  }
+  if(!signal && lo.length>=2){
+    const p2=lo.at(-1), p1=lo.at(-2);
+    if(p2.p>p1.p){
+      const age=i-p2.i, fresh=cl[i-1]<=p2.p && px>p2.p;
+      if((age<=4 && px>p2.p || fresh) && lastCci>knobs.cci){
+        const dist=p2.i-p1.i, slope=(p2.p-p1.p)/dist, projI=p2.i+knobs.proj*dist;
+        const tp=p2.p+slope*(projI-p2.i), sl=Math.min(p2.p,p1.p)-knobs.slBuf*lastAtr;
+        const rr=(tp-px)/Math.max(1e-9,px-sl);
+        if(tp>px && rr>=1.2) signal={dir:'BUY',entry:px,sl,tp,rr,src:'Trend-Fan'};
+      }
+    }
+  }
+  const z=zone(px,lastR);
+  if(knobs.useLevels){
+    if(z.code==='NO_CHASE' && (!signal||signal.dir==='BUY')) signal=null;
+    if(z.code==='BUY_DIP' && !signal){
+      const sl=Math.min(LEVELS.inv,px-knobs.slBuf*lastAtr);
+      signal={dir:'BUY',entry:px,sl,tp:LEVELS.bo,rr:(LEVELS.bo-px)/Math.max(1e-9,px-sl),src:'dip zone'};
+    }
+  }
+  return {zone:z,signal,lastCci,lastAtr};
+}
+
+function maybeOpen(sig){
+  if(!sig || open || !$('armed').checked) return;
+  const key=sig.dir+'|'+sig.src+'|'+$('interval').value+'|'+Math.round(sig.entry*1000);
+  if(key===lastKey) return;
+  lastKey=key;
+  open={...sig, t:Date.now()};
+  logLesson('OPEN paper '+sig.dir+' @ '+fmt(sig.entry)+'  SL '+fmt(sig.sl)+'  TP '+fmt(sig.tp));
+}
+
+async function loadHist(){
+  $('st').textContent='hist';
+  const res=await fetch(`${REST}/api/v3/klines?symbol=${SYM}&interval=${$('interval').value}&limit=280`);
+  const raw=await res.json();
+  candles=raw.map(k=>({epoch:Math.floor(k[0]/1000),open:+k[1],high:+k[2],low:+k[3],close:+k[4]}));
+  tick(); connect();
+}
+function connect(){
+  try{wsK&&wsK.close(); wsT&&wsT.close()}catch(e){}
+  const iv=$('interval').value;
+  wsK=new WebSocket(`${WS}/${SYM.toLowerCase()}@kline_${iv}`);
+  wsK.onopen=()=>{$('dot').classList.add('on'); $('st').textContent='LIVE_'+iv};
+  wsK.onclose=()=>{$('dot').classList.remove('on'); $('st').textContent='RECONNECT'; setTimeout(()=>{if(!document.hidden)connect()},3000)};
+  wsK.onmessage=ev=>{
+    const k=JSON.parse(ev.data).k; if(!k) return;
+    const c={epoch:Math.floor(k.t/1000),open:+k.o,high:+k.h,low:+k.l,close:+k.c};
+    const last=candles.at(-1);
+    if(last&&last.epoch===c.epoch) candles[candles.length-1]=c;
+    else {candles.push(c); if(candles.length>320) candles.shift()}
+    lastPx=c.close; $('px').textContent=fmt(c.close);
+    manageOpen(c.close,c.high,c.low); tick();
+  };
+  wsT=new WebSocket(`${WS}/${SYM.toLowerCase()}@aggTrade`);
+  wsT.onmessage=ev=>{
+    const p=+JSON.parse(ev.data).p; if(!isFinite(p)) return;
+    lastPx=p; $('px').textContent=fmt(p);
+    if(candles.length){const last=candles.at(-1); last.close=p; last.high=Math.max(last.high,p); last.low=Math.min(last.low,p)}
+    if(open) manageOpen(p,p,p);
+  };
+}
+function tick(){
+  const out=idea(candles); if(!out) return;
+  const s=stats();
+  $('zone').textContent=out.zone.code;
+  $('cci').textContent=out.lastCci==null?'—':out.lastCci.toFixed(1);
+  $('wr').textContent=s.wr==null?'—':(s.wr*100).toFixed(0)+'%';
+  $('exp').textContent=s.exp==null?'—':s.exp.toFixed(2)+'R';
+  showKnobs();
+  if(open){
+    $('pill').className='pill '+open.dir; $('pill').textContent='IN '+open.dir;
+    $('why').textContent='Paper position live. Agent will close at SL or TP only.';
+    $('en').textContent=fmt(open.entry); $('sl').textContent=fmt(open.sl); $('tp').textContent=fmt(open.tp);
+    $('rr').textContent=open.rr.toFixed(2);
+    $('cc').className='card '+(open.dir==='BUY'?'buy':'sell');
+  } else if(out.signal){
+    $('pill').className='pill '+out.signal.dir; $('pill').textContent=out.signal.dir;
+    $('why').textContent=out.zone.t+' · arm the agent to paper-enter.';
+    $('en').textContent=fmt(out.signal.entry); $('sl').textContent=fmt(out.signal.sl); $('tp').textContent=fmt(out.signal.tp);
+    $('rr').textContent=out.signal.rr.toFixed(2);
+    $('cc').className='card '+(out.signal.dir==='BUY'?'buy':'sell');
+    maybeOpen(out.signal);
+  } else {
+    $('pill').className='pill'; $('pill').textContent='WAIT';
+    $('why').textContent=out.zone.t;
+    $('en').textContent='—';$('sl').textContent='—';$('tp').textContent='—';$('rr').textContent='—';
+    $('cc').className='card';
+  }
+  $('hist').innerHTML=closed.length?closed.slice().reverse().slice(0,12).map(t=>`<div class="row"><b style="color:${t.r>0?'#00ff66':'#ff3333'}">${t.dir}</b><span>${fmt(t.entry)} → ${fmt(t.exit)} · ${t.r.toFixed(2)}R</span><span>${t.t}<br>${t.reason}</span></div>`).join(''):'NONE';
+  draw();
+}
+function draw(){
+  const cv=$('cv'),ctx=cv.getContext('2d'),W=cv.width,H=cv.height; ctx.clearRect(0,0,W,H);
+  if(candles.length<2) return;
+  const vis=90,start=Math.max(0,candles.length-vis),sl=candles.slice(start);
+  let lo=Math.min(...sl.map(c=>c.low)), hi=Math.max(...sl.map(c=>c.high));
+  if(open){lo=Math.min(lo,open.sl,open.tp); hi=Math.max(hi,open.sl,open.tp)}
+  const pad=(hi-lo)*0.12||0.01; lo-=pad; hi+=pad;
+  const x=i=>((i-start)/Math.max(1,candles.length-1-start))*(W-16)+8;
+  const y=v=>H-((v-lo)/(hi-lo||1))*(H-16)-8;
+  const cw=Math.max(2,(W/sl.length)*0.5);
+  sl.forEach((c,j)=>{const i=start+j,cx=x(i),up=c.close>=c.open; ctx.strokeStyle=ctx.fillStyle=up?'#00ff66':'#ff3333';
+    ctx.beginPath();ctx.moveTo(cx,y(c.high));ctx.lineTo(cx,y(c.low));ctx.stroke();
+    ctx.fillRect(cx-cw/2,Math.min(y(c.open),y(c.close)),cw,Math.max(1,Math.abs(y(c.close)-y(c.open))));});
+  if(open){
+    const line=(v,col)=>{ctx.strokeStyle=col;ctx.setLineDash([5,3]);ctx.beginPath();ctx.moveTo(0,y(v));ctx.lineTo(W,y(v));ctx.stroke();ctx.setLineDash([])};
+    line(open.entry,'#ff8b96'); line(open.sl,'#ff3333'); line(open.tp,'#00ff9c');
+  }
+}
+$('interval').onchange=()=>loadHist();
+$('reset').onclick=()=>{if(confirm('Wipe learned knobs and paper history?')){knobs={cci:55,slBuf:1.1,proj:2.0,useLevels:true}; closed=[]; open=null; saveMem(); logLesson('memory wiped'); tick()}};
+showKnobs();
+loadHist().catch(()=>{$('st').textContent='REST_ERROR'});
+</script>
+</body>
+</html>
