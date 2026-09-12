@@ -1,703 +1,868 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Kayden Live Agent</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
-  <style>
-    :root {
-      --bg: #0b0c10;
-      --panel: #12141a;
-      --panel-2: #181b23;
-      --line: #2a2e38;
-      --text: #ececf1;
-      --muted: #9aa3b2;
-      --accent: #7c5cff;
-      --accent-2: #3ee0c5;
-      --warn: #ffb020;
-      --danger: #ff5d73;
-      --ok: #3ee0c5;
-      --radius: 16px;
-    }
-    * { box-sizing: border-box; }
-    html, body { height: 100%; margin: 0; background: var(--bg); color: var(--text); font-family: "Instrument Sans", system-ui, sans-serif; }
-    button, input, textarea, select { font: inherit; color: inherit; }
-    button { cursor: pointer; }
-    .app {
-      display: grid;
-      grid-template-columns: 280px 1fr 360px;
-      height: 100%;
-    }
-    @media (max-width: 1100px) {
-      .app { grid-template-columns: 1fr; grid-template-rows: auto 1fr auto; }
-      .side, .rail { display: none; }
-      .side.open, .rail.open { display: block; }
-    }
-    .side, .rail, .main { border-right: 1px solid var(--line); }
-    .rail { border-right: 0; border-left: 1px solid var(--line); }
-    .brand {
-      padding: 20px 18px 12px;
-      display: flex; align-items: center; gap: 12px;
-    }
-    .avatar {
-      width: 42px; height: 42px; border-radius: 14px;
-      background: radial-gradient(circle at 30% 20%, #cbb6ff, var(--accent) 45%, #2b1d6e);
-      display: grid; place-items: center; font-weight: 700;
-    }
-    .brand h1 { font-size: 16px; margin: 0; }
-    .brand p { margin: 2px 0 0; color: var(--muted); font-size: 12px; }
-    .nav { padding: 8px; display: grid; gap: 6px; }
-    .nav button, .chip, .primary, .ghost {
-      border: 1px solid transparent; border-radius: 12px; padding: 10px 12px; background: transparent; text-align: left;
-    }
-    .nav button.active, .nav button:hover { background: var(--panel-2); border-color: var(--line); }
-    .connectors { padding: 8px 16px 20px; }
-    .connectors h3, .rail h3, .workspace-head span { font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin: 16px 0 8px; }
-    .conn {
-      display: flex; justify-content: space-between; align-items: center;
-      background: var(--panel-2); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; margin-bottom: 8px;
-    }
-    .toggle { width: 38px; height: 22px; border-radius: 99px; background: #2c313c; position: relative; border: 0; }
-    .toggle.on { background: #3b2fa0; }
-    .toggle::after {
-      content: ""; position: absolute; width: 16px; height: 16px; border-radius: 50%;
-      background: white; top: 3px; left: 3px; transition: .2s;
-    }
-    .toggle.on::after { left: 19px; }
-    .main { display: flex; flex-direction: column; min-width: 0; }
-    .topbar {
-      display: flex; align-items: center; justify-content: space-between;
-      padding: 14px 18px; border-bottom: 1px solid var(--line);
-    }
-    .status { display: flex; gap: 8px; align-items: center; color: var(--muted); font-size: 13px; }
-    .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--ok); box-shadow: 0 0 8px var(--ok); }
-    .chip { background: var(--panel-2); border-color: var(--line); font-size: 13px; }
-    .chat { flex: 1; overflow: auto; padding: 22px; display: flex; flex-direction: column; gap: 16px; }
-    .msg { max-width: 720px; }
-    .msg.user { margin-left: auto; }
-    .bubble {
-      background: var(--panel-2); border: 1px solid var(--line); border-radius: 18px; padding: 12px 14px; line-height: 1.5; white-space: pre-wrap;
-    }
-    .msg.user .bubble { background: #231d44; border-color: #3b3170; }
-    .meta { font-size: 12px; color: var(--muted); margin-bottom: 6px; }
-    .composer {
-      padding: 14px; border-top: 1px solid var(--line);
-    }
-    .box {
-      display: flex; gap: 10px; background: var(--panel-2); border: 1px solid var(--line);
-      border-radius: 18px; padding: 10px;
-    }
-    textarea {
-      flex: 1; resize: none; min-height: 48px; max-height: 160px;
-      background: transparent; border: 0; outline: none;
-    }
-    .primary {
-      background: var(--accent); color: white; font-weight: 600; border: 0; padding: 10px 14px; white-space: nowrap;
-    }
-    .ghost { border-color: var(--line); background: transparent; }
-    .rail { background: var(--panel); overflow: auto; }
-    .rail-inner { padding: 16px; }
-    .card {
-      background: var(--panel-2); border: 1px solid var(--line); border-radius: var(--radius); padding: 12px; margin-bottom: 10px;
-    }
-    .card b { display: block; margin-bottom: 4px; }
-    .tiny { color: var(--muted); font-size: 13px; }
-    .workspace {
-      font-family: "JetBrains Mono", monospace; font-size: 12px; background: #0e1016;
-      border: 1px solid var(--line); border-radius: 12px; min-height: 180px; padding: 10px; color: #c9d1e0;
-      white-space: pre-wrap;
-    }
-    .settings { display: grid; gap: 8px; }
-    .settings input, .settings select {
-      width: 100%; background: #0e1016; border: 1px solid var(--line); border-radius: 10px; padding: 9px 10px;
-    }
-    .row { display: flex; gap: 8px; flex-wrap: wrap; }
-    .hidden { display: none !important; }
-  </style>
+<meta charset="UTF-8">
+<title>Volatility Index — P.A.T. + ICT + Retest Sniper Entry</title>
+<style>
+  :root{
+    --bg:#050914;
+    --panel:#0a1224;
+    --cyan:#33d6ff;
+    --cyan-dim:#1a7a99;
+    --red:#ff4d4d;
+    --amber:#ffb020;
+    --green:#3ddc84;
+    --text:#dff6ff;
+    --muted:#5f7d92;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:radial-gradient(ellipse at top, #0c1930 0%, var(--bg) 70%);
+    color:var(--text);
+    font-family:'Courier New', monospace;
+    display:flex;
+    justify-content:center;
+    padding:24px 16px;
+  }
+  .frame{
+    width:100%;
+    max-width:640px;
+    background:var(--panel);
+    border:1px solid var(--cyan-dim);
+    border-radius:14px;
+    padding:24px 24px 20px;
+    box-shadow:0 0 40px rgba(51,214,255,0.08), inset 0 0 30px rgba(51,214,255,0.03);
+  }
+  .header{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px;flex-wrap:wrap;gap:6px;}
+  .header h1{font-size:15px;letter-spacing:1px;margin:0;color:var(--cyan);text-shadow:0 0 8px rgba(51,214,255,0.4);}
+  .status-dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--red);margin-right:6px;box-shadow:0 0 6px currentColor;}
+  .status-dot.live{background:var(--green);}
+  .status-line{font-size:11px;color:var(--muted);margin-bottom:14px;}
+  .selector-row{display:flex;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap;}
+  .selector-row label{font-size:11px;letter-spacing:1px;color:var(--muted);white-space:nowrap;}
+  .selector-row select, .selector-row input{
+    background:#0d1830;
+    color:var(--cyan);
+    border:1px solid var(--cyan-dim);
+    border-radius:6px;
+    padding:8px 10px;
+    font-family:'Courier New', monospace;
+    font-size:13px;
+  }
+  .selector-row select{flex:1;}
+  .selector-row input[type=number]{width:60px;}
+  .section-label{font-size:12px;letter-spacing:2px;color:var(--cyan-dim);margin:18px 0 2px;}
+  .price-row{display:flex;justify-content:space-between;font-size:12px;color:var(--muted);margin-bottom:4px;}
+  .price-row span.val{color:var(--text);font-size:13px;}
+  .swing-row{display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-bottom:2px;}
+  .swing-row span.val{color:var(--cyan-dim);text-align:right;max-width:60%;}
+  svg{display:block;margin:4px auto 0;}
+  .needle{transition:transform 0.6s cubic-bezier(.4,1.4,.4,1);}
+  .valLabel{transition:fill 0.4s;}
+  .sniper-banner{
+    margin-top:20px;
+    border-radius:10px;
+    padding:16px;
+    text-align:center;
+    letter-spacing:2px;
+    font-size:16px;
+    font-weight:bold;
+    border:1px solid var(--muted);
+    color:var(--muted);
+    background:rgba(255,255,255,0.02);
+    transition:all 0.4s;
+  }
+  .sniper-banner.buy{border-color:var(--green);color:var(--green);box-shadow:0 0 20px rgba(61,220,132,0.25);background:rgba(61,220,132,0.06);}
+  .sniper-banner.sell{border-color:var(--red);color:var(--red);box-shadow:0 0 20px rgba(255,77,77,0.25);background:rgba(255,77,77,0.06);}
+  .sniper-banner.tp{border-color:var(--amber);color:var(--amber);box-shadow:0 0 20px rgba(255,176,32,0.3);background:rgba(255,176,32,0.08);}
+  .sniper-banner.armed{border-color:var(--amber);color:var(--amber);box-shadow:0 0 16px rgba(255,176,32,0.2);background:rgba(255,176,32,0.05);}
+  .sniper-sub{font-size:10px;letter-spacing:1px;color:var(--muted);margin-top:6px;font-weight:normal;line-height:1.5;}
+  .tp-stats{display:flex;justify-content:center;gap:20px;margin-top:12px;flex-wrap:wrap;}
+  .tp-col{text-align:center;}
+  .tp-label{font-size:9px;letter-spacing:2px;color:var(--muted);margin-bottom:2px;}
+  .tp-value{font-size:15px;font-weight:bold;letter-spacing:1px;color:var(--muted);}
+  .tp-value.hit{color:var(--green);text-decoration:line-through;text-decoration-color:rgba(61,220,132,0.6);}
+  .footer-note{font-size:10px;color:var(--muted);text-align:center;margin-top:14px;line-height:1.6;}
+</style>
 </head>
 <body>
-  <div class="app">
-    <aside class="side" id="side">
-      <div class="brand">
-        <div class="avatar" id="avatarMark">M</div>
-        <div>
-          <h1 id="agentName">Kayden Live</h1>
-          <p>Live AI agent · persistent learning</p>
-        </div>
-      </div>
-      <nav class="nav">
-        <button class="active" data-tab="chat">Chat</button>
-        <button data-tab="goals">Goals</button>
-        <button data-tab="artifacts">Artifacts</button>
-        <button data-tab="settings">Settings</button>
-      </nav>
-      <div class="connectors">
-        <h3>Connectors</h3>
-        <div id="connectors"></div>
-      </div>
-    </aside>
+<div class="frame">
+  <div class="header">
+    <h1 id="mainTitle">LOADING INSTRUMENT LIST&hellip;</h1>
+    <div><span class="status-dot" id="statusDot"></span><span id="statusText">connecting</span></div>
+  </div>
+  <div class="status-line" id="subLine">Fetching available volatility indices from Deriv&hellip;</div>
 
-    <main class="main">
-      <div class="topbar">
-        <div class="status"><span class="dot"></span> Secure workspace · isolated tab</div>
-        <div class="row">
-          <button class="chip" id="newChat">New thread</button>
-          <button class="chip" id="liveMode">LIVE: OFF</button>
-          <button class="chip hidden" id="runDemo">Run demo task</button>
-        </div>
-      </div>
-      <section class="chat" id="chat"></section>
-      <div class="api-panel" id="apiPanel" style="display:none;padding:14px;border-top:1px solid var(--line);background:var(--panel);">
-          <div class="card" style="margin:0;">
-            <b>Live API Configuration</b>
-            <div class="tiny" style="margin-bottom:10px;">Enter your API key here to enable LIVE AI replies. The key is stored only in this browser.</div>
-            <div class="settings">
-              <input id="apiKeyInput" type="password" placeholder="API key (e.g. sk-...)" autocomplete="off">
-              <input id="apiBaseInput" type="text" placeholder="API base URL">
-              <input id="modelInput" type="text" placeholder="Model name">
-              <div class="row">
-                <button class="primary" id="saveApi">Save API Settings</button>
-                <button class="ghost" id="showApi">Show / Hide key</button>
-              </div>
-              <div class="tiny" id="apiStatus">API key: not configured</div>
-            </div>
-          </div>
-        </div>
-        <div class="composer">
-        <div class="box">
-          <textarea id="input" placeholder="Ask the agent to plan, draft, research, or simulate a task…"></textarea>
-          <button class="primary" id="send">Send</button>
-        </div>
-      </div>
-    </main>
-
-    <aside class="rail" id="rail">
-      <div class="rail-inner">
-        <h3>Workspace</h3>
-        <div class="workspace" id="workspace">idle · waiting for a task</div>
-        <h3>Learning</h3>
-        <div class="card">
-          <b id="learningStatus">Learning: ON</b>
-          <div class="tiny" id="learningStats">0 lessons · 0 successful tasks</div>
-          <div class="row" style="margin-top:8px">
-            <button class="ghost" id="clearLearning">Reset learning</button>
-            <button class="ghost" id="exportLearning">Export learning</button>
-          </div>
-        </div>
-        <h3>Goals</h3>
-        <div id="goals"></div>
-        <h3>Ideas</h3>
-        <div id="ideas"></div>
-      </div>
-    </aside>
+  <div class="selector-row">
+    <label for="symbolSelect">INSTRUMENT</label>
+    <select id="symbolSelect" disabled><option>Loading…</option></select>
+  </div>
+  <div class="selector-row">
+    <label for="lookbackInput">SWING LOOKBACK</label>
+    <input type="number" id="lookbackInput" min="2" max="15" value="5">
+    <label style="margin-left:auto;">P.A.T. + ICT + RETEST</label>
   </div>
 
-  <script>
-    const state = {
-      name: localStorage.getItem("agentName") || "Muse-like",
-      messages: JSON.parse(localStorage.getItem("msgs") || "null") || [
-        { role: "assistant", text: "I’m a Muse-style personal agent that runs entirely in this page. Connect apps on the left, give me a goal, or configure an OpenAI-compatible API in Settings for live replies.\n\nTry: “Turn tonight’s dinner idea into a grocery list and a 3-step plan.”" }
-      ],
-      goals: JSON.parse(localStorage.getItem("goals") || "null") || [
-        { title: "Keep weekly admin off your plate", done: false },
-        { title: "Draft outreach without leaving chat", done: false }
-      ],
-      connectors: JSON.parse(localStorage.getItem("connectors") || "null") || {
-        Email: false, Calendar: false, Shopping: true, Notes: true, Travel: false
-      },
-      apiBase: localStorage.getItem("apiBase") || "https://api.openai.com/v1",
-      apiKey: localStorage.getItem("apiKey") || "",
-      model: localStorage.getItem("model") || "gpt-4o-mini",
-      liveMode: localStorage.getItem("liveMode") === "true",
-      learning: JSON.parse(localStorage.getItem("learning") || "null") || {
-        lessons: [],
-        successfulTasks: 0,
-        failedTasks: 0,
-        preferences: {},
-        strategyVersion: 1
-      }
-    };
+  <div class="selector-row" style="margin-bottom:16px;">
+    <label style="white-space:nowrap;">ALERTS</label>
+    <button id="notifyBtn" style="flex:1;background:#0d1830;color:var(--cyan);border:1px solid var(--cyan-dim);border-radius:6px;padding:8px 10px;font-family:'Courier New',monospace;font-size:12px;letter-spacing:1px;cursor:pointer;">🔔 ENABLE NOTIFICATIONS</button>
+  </div>
 
-    const $ = id => document.getElementById(id);
-    const chatEl = $("chat");
-    const workspace = $("workspace");
+  <div class="tg-config" style="border:1px solid var(--cyan-dim);border-radius:8px;padding:12px;margin-bottom:16px;">
+    <div style="font-size:11px;letter-spacing:1px;color:var(--cyan-dim);margin-bottom:8px;">TELEGRAM ALERTS</div>
+    <div style="display:flex;flex-direction:column;gap:8px;">
+      <input type="text" id="tgToken" placeholder="Bot token (from @BotFather)" style="background:#0d1830;color:var(--text);border:1px solid var(--cyan-dim);border-radius:6px;padding:8px;font-family:'Courier New',monospace;font-size:12px;">
+      <input type="text" id="tgChatId" placeholder="Chat ID" style="background:#0d1830;color:var(--text);border:1px solid var(--cyan-dim);border-radius:6px;padding:8px;font-family:'Courier New',monospace;font-size:12px;">
+      <div style="display:flex;gap:8px;">
+        <button id="tgSaveBtn" style="flex:1;background:#0d1830;color:var(--cyan);border:1px solid var(--cyan-dim);border-radius:6px;padding:8px;font-family:'Courier New',monospace;font-size:11px;letter-spacing:1px;cursor:pointer;">SAVE</button>
+        <button id="tgTestBtn" style="flex:1;background:#0d1830;color:var(--cyan);border:1px solid var(--cyan-dim);border-radius:6px;padding:8px;font-family:'Courier New',monospace;font-size:11px;letter-spacing:1px;cursor:pointer;">SEND TEST</button>
+      </div>
+      <div id="tgStatus" style="font-size:10px;color:var(--muted);"></div>
+    </div>
+  </div>
 
-    function save() {
-      localStorage.setItem("agentName", state.name);
-      localStorage.setItem("msgs", JSON.stringify(state.messages.slice(-40)));
-      localStorage.setItem("goals", JSON.stringify(state.goals));
-      localStorage.setItem("connectors", JSON.stringify(state.connectors));
-      localStorage.setItem("apiBase", state.apiBase);
-      localStorage.setItem("apiKey", state.apiKey);
-      localStorage.setItem("model", state.model);
-      localStorage.setItem("liveMode", String(state.liveMode));
-      localStorage.setItem("learning", JSON.stringify(state.learning));
+  <div class="selector-row">
+    <label for="tpMultInput" style="white-space:nowrap;">TP STEP (&times; ATR M1)</label>
+    <input type="number" id="tpMultInput" min="0.5" max="5" step="0.5" value="1">
+    <label style="margin-left:auto;font-size:10px;color:var(--muted);">TP1/TP2/TP3 = step &times; 1/2/3</label>
+  </div>
+
+  <div class="section-label">H1 — STRUCTURE / TREND BIAS</div>
+  <div class="price-row"><span>Price</span><span class="val" id="h1Price">&mdash;</span></div>
+  <div class="swing-row"><span>Last Swing High</span><span class="val" id="h1SwingHigh">&mdash;</span></div>
+  <div class="swing-row"><span>Last Swing Low</span><span class="val" id="h1SwingLow">&mdash;</span></div>
+  <svg width="100%" viewBox="0 0 680 300" role="img" aria-label="H1 bias gauge">
+    <path d="M120,260 A220,220 0 0,1 162,131" fill="none" stroke="#7a1f1f" stroke-width="40"/>
+    <path d="M162,131 A220,220 0 0,1 272,51"  fill="none" stroke="#7a4a15" stroke-width="40"/>
+    <path d="M272,51  A220,220 0 0,1 408,51"  fill="none" stroke="#33465a" stroke-width="40"/>
+    <path d="M408,51  A220,220 0 0,1 518,131" fill="none" stroke="#2f6b3a" stroke-width="40"/>
+    <path d="M518,131 A220,220 0 0,1 560,260" fill="none" stroke="#1d4d26" stroke-width="40"/>
+    <text x="90" y="285" text-anchor="middle" fill="var(--muted)" font-size="11">BEARISH</text>
+    <text x="590" y="285" text-anchor="middle" fill="var(--muted)" font-size="11">BULLISH</text>
+    <line id="h1Needle" class="needle" x1="340" y1="260" x2="130" y2="260" stroke="var(--cyan)" stroke-width="3" stroke-linecap="round" transform="rotate(90,340,260)" style="filter:drop-shadow(0 0 4px rgba(51,214,255,0.8));"/>
+    <circle cx="340" cy="260" r="9" fill="var(--cyan)" style="filter:drop-shadow(0 0 4px rgba(51,214,255,0.8));"/>
+    <text id="h1ValLabel" class="valLabel" x="340" y="205" text-anchor="middle" fill="var(--cyan)" style="font-size:22px;font-family:'Courier New',monospace;">&mdash;</text>
+    <text id="h1StatusLabel" x="340" y="228" text-anchor="middle" fill="var(--muted)" style="font-size:12px;letter-spacing:2px;font-family:'Courier New',monospace;">WAITING</text>
+  </svg>
+
+  <div class="section-label">M1 — BREAK OF STRUCTURE / RETEST ENTRY</div>
+  <div class="price-row"><span>Price</span><span class="val" id="m1Price">&mdash;</span></div>
+  <div class="swing-row"><span>Last Swing High</span><span class="val" id="m1SwingHigh">&mdash;</span></div>
+  <div class="swing-row"><span>Last Swing Low</span><span class="val" id="m1SwingLow">&mdash;</span></div>
+  <div class="swing-row"><span>Last Break</span><span class="val" id="m1BreakType">&mdash;</span></div>
+  <div class="swing-row"><span>Liquidity Sweep</span><span class="val" id="m1Sweep">&mdash;</span></div>
+  <div class="swing-row"><span>Retest Zones</span><span class="val" id="m1Zones">&mdash;</span></div>
+  <svg width="100%" viewBox="0 0 680 300" role="img" aria-label="M1 entry gauge">
+    <path d="M120,260 A220,220 0 0,1 162,131" fill="none" stroke="#7a1f1f" stroke-width="40"/>
+    <path d="M162,131 A220,220 0 0,1 272,51"  fill="none" stroke="#7a4a15" stroke-width="40"/>
+    <path d="M272,51  A220,220 0 0,1 408,51"  fill="none" stroke="#33465a" stroke-width="40"/>
+    <path d="M408,51  A220,220 0 0,1 518,131" fill="none" stroke="#2f6b3a" stroke-width="40"/>
+    <path d="M518,131 A220,220 0 0,1 560,260" fill="none" stroke="#1d4d26" stroke-width="40"/>
+    <text x="90" y="285" text-anchor="middle" fill="var(--muted)" font-size="11">BEARISH</text>
+    <text x="590" y="285" text-anchor="middle" fill="var(--muted)" font-size="11">BULLISH</text>
+    <line id="m1Needle" class="needle" x1="340" y1="260" x2="130" y2="260" stroke="var(--cyan)" stroke-width="3" stroke-linecap="round" transform="rotate(90,340,260)" style="filter:drop-shadow(0 0 4px rgba(51,214,255,0.8));"/>
+    <circle cx="340" cy="260" r="9" fill="var(--cyan)" style="filter:drop-shadow(0 0 4px rgba(51,214,255,0.8));"/>
+    <text id="m1ValLabel" class="valLabel" x="340" y="205" text-anchor="middle" fill="var(--cyan)" style="font-size:22px;font-family:'Courier New',monospace;">&mdash;</text>
+    <text id="m1StatusLabel" x="340" y="228" text-anchor="middle" fill="var(--muted)" style="font-size:12px;letter-spacing:2px;font-family:'Courier New',monospace;">WAITING</text>
+  </svg>
+
+  <div class="sniper-banner" id="sniperBanner">
+    NO ALIGNMENT &mdash; WAIT
+    <div class="tp-stats" id="tpStats" style="display:none;">
+      <div class="tp-col"><div class="tp-label">ENTRY</div><div class="tp-value" id="entryStat">&mdash;</div></div>
+      <div class="tp-col"><div class="tp-label">TP1</div><div class="tp-value" id="tp1Stat">&mdash;</div></div>
+      <div class="tp-col"><div class="tp-label">TP2</div><div class="tp-value" id="tp2Stat">&mdash;</div></div>
+      <div class="tp-col"><div class="tp-label">TP3</div><div class="tp-value" id="tp3Stat">&mdash;</div></div>
+    </div>
+    <div class="sniper-sub">H1 trend and M1 timing are not agreeing</div>
+  </div>
+
+  <div class="footer-note">
+    P.A.T. + ICT + Retest = market-structure trading with BOS/CHoCH classification, liquidity-sweep tagging, and multi-zone retest confirmation.<br>
+    H1 = swing-structure trend bias, fading toward neutral over time since the last break.<br>
+    M1: a fresh BOS/CHoCH matching H1 <em>arms</em> a setup. Three retest zones are then watched &mdash; the OTE Fibonacci zone (61.8&ndash;79% of the impulse leg), a zone around the original broken structure level, and a projected trendline from the last two swing points. The setup only fires when price both touches one of these zones <strong>and</strong> the touching candle confirms with either a wick rejection (pokes in, closes back out) or a strong momentum candle closing away from the zone.<br>
+    A break whose level sat close to an earlier equal high/low is flagged as a liquidity sweep. The setup is invalidated by a fresh opposing break or an H1 trend flip, not by a fixed timer.<br>
+    On trigger, three take-profit levels are set at 1&times;, 2&times;, and 3&times; the TP step (ATR(14) on M1) from the confirmed entry price. Each level alerts once when reached; a reversal before TP3 closes the setup early.<br>
+    Instrument list is pulled live from Deriv. This is a monitoring/research display only &mdash; it does not place trades. Validate any strategy in the MT5 Strategy Tester before risking real funds.<br><br>
+    <strong>Telegram setup:</strong> message @BotFather on Telegram, send /newbot, paste the token above.
+    Then message your new bot anything, open
+    <span style="word-break:break-all;">api.telegram.org/bot&lt;TOKEN&gt;/getUpdates</span>
+    in a browser and copy the "chat":"id" number into Chat ID above. Tap SAVE, then SEND TEST.
+  </div>
+</div>
+
+<script>
+const APP_ID = 1089;
+const GRAN_H1 = 3600;
+const GRAN_M1 = 60;
+const ATR_PERIOD = 14;
+const H1_REFRESH_MS = 5 * 60 * 1000;
+const H1_DECAY_PER_BAR = 1.5;
+const M1_DECAY_PER_BAR = 4.5;
+
+let ws;
+let SYMBOL = null;
+let DISPLAY_NAME = '';
+let h1Candles = [];
+let m1Candles = [];
+let subscribedTicks = false;
+let h1Zone = 'NEUTRAL';
+let m1Zone = 'NEUTRAL';
+let dataReceived = false;
+let lookback = 5;
+let tpStep = 1;
+let activeTrade = null;   // { direction, entryPrice, tp1, tp2, tp3, hit1, hit2, hit3 }
+let pendingSetup = null;  // { direction, breakType, sweep }
+
+const FALLBACK_SYMBOLS = [
+  { symbol: 'R_10',    display_name: 'Volatility 10 Index' },
+  { symbol: 'R_25',    display_name: 'Volatility 25 Index' },
+  { symbol: 'R_50',    display_name: 'Volatility 50 Index' },
+  { symbol: 'R_75',    display_name: 'Volatility 75 Index' },
+  { symbol: 'R_100',   display_name: 'Volatility 100 Index' },
+  { symbol: '1HZ10V',  display_name: 'Volatility 10 (1s) Index' },
+  { symbol: '1HZ15V',  display_name: 'Volatility 15 (1s) Index' },
+  { symbol: '1HZ25V',  display_name: 'Volatility 25 (1s) Index' },
+  { symbol: '1HZ30V',  display_name: 'Volatility 30 (1s) Index' },
+  { symbol: '1HZ50V',  display_name: 'Volatility 50 (1s) Index' },
+  { symbol: '1HZ75V',  display_name: 'Volatility 75 (1s) Index' },
+  { symbol: '1HZ90V',  display_name: 'Volatility 90 (1s) Index' },
+  { symbol: '1HZ100V', display_name: 'Volatility 100 (1s) Index' }
+];
+
+const statusDot = document.getElementById('statusDot');
+const statusText = document.getElementById('statusText');
+const symbolSelect = document.getElementById('symbolSelect');
+const mainTitle = document.getElementById('mainTitle');
+const subLine = document.getElementById('subLine');
+const lookbackInput = document.getElementById('lookbackInput');
+const tpMultInput = document.getElementById('tpMultInput');
+
+lookbackInput.addEventListener('change', () => {
+  const v = parseInt(lookbackInput.value, 10);
+  lookback = Number.isFinite(v) && v >= 2 ? Math.min(15, v) : 5;
+  recomputeH1();
+  recomputeM1();
+});
+
+tpMultInput.addEventListener('change', () => {
+  const v = parseFloat(tpMultInput.value);
+  tpStep = Number.isFinite(v) && v > 0 ? v : 1;
+});
+
+function setConnState(live, label){
+  statusDot.classList.toggle('live', live);
+  statusText.textContent = label;
+}
+
+initialSymbolSetup(FALLBACK_SYMBOLS);
+
+function connect(){
+  ws = new WebSocket(`wss://ws.derivws.com/websockets/v3?app_id=${APP_ID}`);
+
+  ws.onopen = () => {
+    setConnState(false, 'loading ' + SYMBOL);
+    loadSymbol(SYMBOL);
+    ws.send(JSON.stringify({ active_symbols: "brief", product_type: "basic" }));
+  };
+
+  ws.onmessage = (msg) => {
+    const data = JSON.parse(msg.data);
+
+    if (data.error) {
+      console.warn('API error:', data.error.message, data.echo_req);
+      if (!dataReceived) setConnState(false, 'error: ' + data.error.message);
+      return;
     }
 
-    function renderChat() {
-      chatEl.innerHTML = "";
-      state.messages.forEach(m => {
-        const wrap = document.createElement("div");
-        wrap.className = "msg " + m.role;
-        wrap.innerHTML = `<div class="meta">${m.role === "user" ? "You" : state.name}</div><div class="bubble"></div>`;
-        wrap.querySelector(".bubble").textContent = m.text;
-        chatEl.appendChild(wrap);
-      });
-      chatEl.scrollTop = chatEl.scrollHeight;
-      $("agentName").textContent = state.name;
-      $("avatarMark").textContent = state.name.slice(0,1).toUpperCase();
+    if (data.msg_type === "active_symbols") {
+      upgradeDropdownFromLive(data.active_symbols);
+      return;
     }
 
-    function renderSide() {
-      $("connectors").innerHTML = Object.entries(state.connectors).map(([k,v]) =>
-        `<div class="conn"><span>${k}</span><button class="toggle ${v?"on":""}" data-k="${k}"></button></div>`
-      ).join("");
-      $("goals").innerHTML = state.goals.map((g,i) =>
-        `<div class="card"><b>${g.done ? "✓ " : ""}${g.title}</b><div class="tiny">${g.done ? "done" : "in progress"}</div></div>`
-      ).join("") || `<div class="tiny">No goals yet.</div>`;
-      $("ideas").innerHTML = [
-        "Compare two flights and draft the booking email",
-        "Turn a recipe into a shopping list",
-        "Summarize last week’s notes into 5 actions"
-      ].map(t => `<div class="card"><b>${t}</b><button class="ghost" data-idea="${t}">Use idea</button></div>`).join("");
-    }
-
-    function logWork(lines) {
-      workspace.textContent = lines.join("\n");
-    }
-
-
-    function updateLearningUI() {
-      const el = $("learningStats");
-      if (el) el.textContent =
-        `${state.learning.lessons.length} lessons · ${state.learning.successfulTasks} successful tasks`;
-      const st = $("learningStatus");
-      if (st) st.textContent = `Learning: ${state.learning.lessons.length ? "ACTIVE" : "ON"}`;
-    }
-
-    function rememberLesson(prompt, result, success=true) {
-      const lesson = {
-        time: new Date().toISOString(),
-        prompt: prompt.slice(0, 500),
-        result: result.slice(0, 800),
-        success
-      };
-      state.learning.lessons.unshift(lesson);
-      state.learning.lessons = state.learning.lessons.slice(0, 100);
-      if (success) state.learning.successfulTasks++;
-      else state.learning.failedTasks++;
-      state.learning.strategyVersion++;
-      save();
-      updateLearningUI();
-    }
-
-    function learningContext() {
-      const recent = state.learning.lessons.slice(0, 8);
-      if (!recent.length) return "No previous lessons yet.";
-      return recent.map((x,i) =>
-        `${i+1}. ${x.success ? "SUCCESS" : "FAILED"}: ${x.prompt}\nOutcome: ${x.result}`
-      ).join("\n\n");
-    }
-
-    function setLiveButton() {
-      const b = $("liveMode");
-      if (!b) return;
-      b.textContent = state.liveMode ? "LIVE: ON" : "LIVE: OFF";
-      b.style.borderColor = state.liveMode ? "var(--ok)" : "var(--line)";
-    }
-
-    function localAgent(prompt) {
-      const on = Object.entries(state.connectors).filter(([,v]) => v).map(([k]) => k);
-      const connected = on.length ? on.join(", ") : "none";
-      if (/groc|shop|recipe|dinner|list/i.test(prompt)) {
-        state.goals.unshift({ title: "Dinner plan + grocery list", done: false });
-        return `Using connectors: ${connected}\n\nPlan\n1. Pick a 25-minute meal: lemon garlic pasta + salad.\n2. Grocery list: spaghetti, garlic, lemons, parsley, parmesan, olive oil, salad mix, cherry tomatoes.\n3. Tonight: boil pasta, sauté garlic, finish with lemon and cheese.\n\nI did not place an order because Shopping checkout is simulated. Toggle connectors, then ask me to “buy the list” to see the workspace flow.`;
-      }
-      if (/email|draft|outreach|write/i.test(prompt)) {
-        return `Draft (not sent — Email connector is ${state.connectors.Email ? "on" : "off"}):\n\nSubject: Quick follow-up\n\nHi there,\nFollowing up on our last note. I can do Thursday 2–4pm or Friday morning.\nIf easier, reply with a time that works.\n\nBest,\nYou\n\nSay “send it” and I’ll simulate the send in the workspace.`;
-      }
-      if (/goal|plan|week/i.test(prompt)) {
-        state.goals.unshift({ title: prompt.slice(0, 60), done: false });
-        return `I turned that into a working goal.\n\nThis week\n• Capture the outcome in one sentence\n• Block two 45-minute sessions\n• Produce one artifact (list, draft, or tracker)\n\nAsk me to build the artifact next.`;
-      }
-      return `Understood.\n\nConnected: ${connected}\nI can draft, plan, and simulate browser steps in the workspace on the right. Add an API key in Settings if you want live model replies instead of this on-device agent.\n\nNext useful move: give me a concrete task with a deadline.`;
-    }
-
-    async function reply(prompt) {
-      logWork([
-        "workspace boot",
-        "sandbox tab: about:agent",
-        "reading connectors…",
-        ...Object.entries(state.connectors).map(([k,v]) => `  ${k}: ${v ? "authorized" : "off"}`),
-        "planning steps…",
-        "writing response…"
-      ]);
-      if (state.liveMode && state.apiKey) {
-        try {
-          const res = await fetch(state.apiBase.replace(/\/$/, "") + "/chat/completions", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "Authorization": "Bearer " + state.apiKey
-            },
-            body: JSON.stringify({
-              model: state.model,
-              messages: [
-                { role: "system", content:
-                  "You are Kayden Live, a persistent personal AI agent. Be direct, action-oriented and honest. " +
-                  "Use previous lessons to improve future answers. Do not claim external actions happened unless the connected service actually confirms them. " +
-                  "When a task succeeds, identify what worked and reuse it. When a task fails, diagnose the failure and avoid repeating it. " +
-                  "Continuously refine your response strategy from the user's feedback and task outcomes. " +
-                  "\n\nLEARNED HISTORY:\n" + learningContext()
-                },
-                ...state.messages.slice(-8).map(m => ({ role: m.role, content: m.text }))
-              ]
-            })
-          });
-          const data = await res.json();
-          const text = data.choices?.[0]?.message?.content || JSON.stringify(data, null, 2);
-          logWork([workspace.textContent, "model: done", "learning: lesson saved"]);
-          rememberLesson(prompt, text, true);
-          return text;
-        } catch (err) {
-          const fallback = "API error: " + err.message + "\n\nFalling back to the local agent.\n\n" + localAgent(prompt);
-            rememberLesson(prompt, fallback, false);
-            return fallback;
+    if (data.msg_type === "candles") {
+      const gran = data.echo_req.granularity;
+      const mapped = data.candles.map(c => ({
+        open: parseFloat(c.open),
+        high: parseFloat(c.high),
+        low: parseFloat(c.low),
+        close: parseFloat(c.close),
+        epoch: c.epoch
+      }));
+      if (gran === GRAN_H1) {
+        h1Candles = mapped;
+        recomputeH1();
+      } else if (gran === GRAN_M1) {
+        m1Candles = mapped;
+        recomputeM1();
+        if (!subscribedTicks) {
+          ws.send(JSON.stringify({ ticks: SYMBOL, subscribe: 1 }));
+          subscribedTicks = true;
         }
       }
-      await new Promise(r => setTimeout(r, 500));
-      logWork([workspace.textContent, "local agent: done", state.liveMode ? "live mode needs an API key" : "offline mode", "learning: lesson saved"]);
-      const local = localAgent(prompt);
-      rememberLesson(prompt, local, false);
-      return local;
+      dataReceived = true;
+      setConnState(true, 'live');
     }
 
-    async function send(text) {
-      const prompt = (text ?? $("input").value).trim();
-      if (!prompt) return;
-      $("input").value = "";
-      state.messages.push({ role: "user", text: prompt });
-  
-
-    function renderApiPanel() {
-      $("apiKeyInput").value = state.apiKey || "";
-      $("apiBaseInput").value = state.apiBase || "https://api.openai.com/v1";
-      $("modelInput").value = state.model || "gpt-4o-mini";
-      $("apiStatus").textContent = state.apiKey
-        ? `API key: configured · ${state.liveMode ? "LIVE mode available" : "LIVE mode is OFF"}`
-        : "API key: not configured";
+    if (data.msg_type === "tick" && data.tick.symbol === SYMBOL) {
+      const price = parseFloat(data.tick.quote);
+      const epoch = data.tick.epoch;
+      const candleEpoch = Math.floor(epoch / GRAN_M1) * GRAN_M1;
+      const last = m1Candles[m1Candles.length - 1];
+      if (last && last.epoch === candleEpoch) {
+        last.high = Math.max(last.high, price);
+        last.low = Math.min(last.low, price);
+        last.close = price;
+      } else {
+        m1Candles.push({ open: price, high: price, low: price, close: price, epoch: candleEpoch });
+        if (m1Candles.length > 300) m1Candles.shift();
+      }
+      dataReceived = true;
+      setConnState(true, 'live');
+      recomputeM1();
     }
+  };
 
-    $("saveApi").onclick = () => {
-      state.apiKey = $("apiKeyInput").value.trim();
-      state.apiBase = $("apiBaseInput").value.trim() || "https://api.openai.com/v1";
-      state.model = $("modelInput").value.trim() || "gpt-4o-mini";
-      save();
-      renderApiPanel();
-      setLiveButton();
-      logWork([
-        "API settings saved",
-        state.apiKey ? "API key configured" : "API key cleared",
-        "base: " + state.apiBase,
-        "model: " + state.model
-      ]);
-    };
+  ws.onclose = () => {
+    setConnState(false, 'reconnecting');
+    subscribedTicks = false;
+    dataReceived = false;
+    setTimeout(connect, 3000);
+  };
 
-    $("showApi").onclick = () => {
-      const input = $("apiKeyInput");
-      input.type = input.type === "password" ? "text" : "password";
-    };
+  ws.onerror = () => { ws.close(); };
+}
 
-        $("liveMode").onclick = () => {
-      if (!state.apiKey) {
-        state.messages.push({ role: "assistant", text:
-          "LIVE mode is ready, but no API key is configured. Open Settings and add your API key, API base, and model. The key is stored only in this browser's localStorage." });
-        renderChat();
-        return;
-      }
-      state.liveMode = !state.liveMode;
-      save();
-      setLiveButton();
-      logWork([state.liveMode ? "LIVE MODE ENABLED" : "LIVE MODE DISABLED",
-               state.liveMode ? "network AI replies are active" : "offline/local replies are active"]);
-    };
+function buildDropdownOptions(list){
+  symbolSelect.innerHTML = '';
+  list.forEach(v => {
+    const opt = document.createElement('option');
+    opt.value = v.symbol;
+    opt.textContent = v.name;
+    symbolSelect.appendChild(opt);
+  });
+  symbolSelect.disabled = false;
+}
 
-    $("clearLearning").onclick = () => {
-      state.learning = { lessons: [], successfulTasks: 0, failedTasks: 0, preferences: {}, strategyVersion: 1 };
-      save(); updateLearningUI();
-      logWork(["learning memory reset", "strategy version: 1"]);
-    };
+function sortVolList(symbols){
+  return symbols
+    .filter(s => /^Volatility/i.test(s.display_name))
+    .map(s => ({ symbol: s.symbol, name: s.display_name, is1s: /\(1s\)/i.test(s.display_name), num: parseInt(s.display_name.replace(/\D+/g, ''), 10) || 0 }))
+    .sort((a, b) => (a.is1s - b.is1s) || (a.num - b.num));
+}
 
-    $("exportLearning").onclick = () => {
-      const blob = new Blob([JSON.stringify(state.learning, null, 2)], {type:"application/json"});
-      const a = document.createElement("a");
-      a.href = URL.createObjectURL(blob);
-      a.download = "kayden-learning.json";
-      a.click();
-      URL.revokeObjectURL(a.href);
-    };
+function initialSymbolSetup(symbols){
+  const vols = sortVolList(symbols);
+  buildDropdownOptions(vols);
 
-    renderChat();
-      const out = await reply(prompt);
-      state.messages.push({ role: "assistant", text: out });
-      if (/send it|buy the list|mark done/i.test(prompt)) {
-        state.goals = state.goals.map((g,i) => i === 0 ? { ...g, done: true } : g);
-      }
-      save();
-  
+  const preferred = vols.find(v => v.symbol === '1HZ90V') || vols[0];
+  if (preferred) {
+    symbolSelect.value = preferred.symbol;
+    SYMBOL = preferred.symbol;
+    DISPLAY_NAME = preferred.name;
+    mainTitle.textContent = `${DISPLAY_NAME} — H1 BIAS / M1 SNIPER (P.A.T.+ICT+RETEST)`;
+    subLine.textContent = `${DISPLAY_NAME} · Structure on H1 for trend, BOS/CHoCH + multi-zone retest confirmation on M1 for entry timing`;
+  }
+}
 
-    function renderApiPanel() {
-      $("apiKeyInput").value = state.apiKey || "";
-      $("apiBaseInput").value = state.apiBase || "https://api.openai.com/v1";
-      $("modelInput").value = state.model || "gpt-4o-mini";
-      $("apiStatus").textContent = state.apiKey
-        ? `API key: configured · ${state.liveMode ? "LIVE mode available" : "LIVE mode is OFF"}`
-        : "API key: not configured";
+function upgradeDropdownFromLive(symbols){
+  const vols = sortVolList(symbols);
+  if (!vols.length) return;
+  const currentValue = SYMBOL;
+  buildDropdownOptions(vols);
+  const stillPresent = vols.some(v => v.symbol === currentValue);
+  if (stillPresent) {
+    symbolSelect.value = currentValue;
+  } else if (vols[0]) {
+    symbolSelect.value = vols[0].symbol;
+    SYMBOL = vols[0].symbol;
+    DISPLAY_NAME = vols[0].name;
+    loadSymbol(SYMBOL);
+  }
+}
+
+symbolSelect.addEventListener('change', () => {
+  SYMBOL = symbolSelect.value;
+  DISPLAY_NAME = symbolSelect.options[symbolSelect.selectedIndex].textContent;
+  loadSymbol(SYMBOL);
+});
+
+function loadSymbol(sym){
+  mainTitle.textContent = `${DISPLAY_NAME} — H1 BIAS / M1 SNIPER (P.A.T.+ICT+RETEST)`;
+  subLine.textContent = `${DISPLAY_NAME} · Structure on H1 for trend, BOS/CHoCH + multi-zone retest confirmation on M1 for entry timing`;
+
+  if (subscribedTicks) ws.send(JSON.stringify({ forget_all: "ticks" }));
+  subscribedTicks = false;
+  dataReceived = false;
+  h1Candles = [];
+  m1Candles = [];
+  h1Zone = 'NEUTRAL';
+  m1Zone = 'NEUTRAL';
+  activeTrade = null;
+  pendingSetup = null;
+  renderIdleBanner();
+  document.getElementById('h1Price').textContent = '—';
+  document.getElementById('h1SwingHigh').textContent = '—';
+  document.getElementById('h1SwingLow').textContent = '—';
+  document.getElementById('m1Price').textContent = '—';
+  document.getElementById('m1SwingHigh').textContent = '—';
+  document.getElementById('m1SwingLow').textContent = '—';
+  document.getElementById('m1BreakType').textContent = '—';
+  document.getElementById('m1Sweep').textContent = '—';
+  document.getElementById('m1Zones').textContent = '—';
+  setConnState(false, 'loading ' + sym);
+
+  fetchCandles(GRAN_H1, 200);
+  fetchCandles(GRAN_M1, 200);
+}
+
+function fetchCandles(granularity, count){
+  ws.send(JSON.stringify({
+    ticks_history: SYMBOL,
+    adjust_start_time: 1,
+    count: count,
+    end: "latest",
+    granularity: granularity,
+    style: "candles"
+  }));
+}
+
+//------------------------------------------------------------------
+// Notifications: browser Notification API + beep
+//------------------------------------------------------------------
+const notifyBtn = document.getElementById('notifyBtn');
+
+function refreshNotifyBtn(){
+  if (!('Notification' in window)) {
+    notifyBtn.textContent = '🔕 NOT SUPPORTED — ADD TO HOME SCREEN (iOS)';
+    notifyBtn.disabled = true;
+    return;
+  }
+  if (Notification.permission === 'granted') {
+    notifyBtn.textContent = '✅ NOTIFICATIONS ON';
+  } else if (Notification.permission === 'denied') {
+    notifyBtn.textContent = '🔕 BLOCKED — ENABLE IN BROWSER SETTINGS';
+  } else {
+    notifyBtn.textContent = '🔔 ENABLE NOTIFICATIONS';
+  }
+}
+
+notifyBtn.addEventListener('click', () => {
+  if (!('Notification' in window)) return;
+  if (Notification.permission === 'default') {
+    Notification.requestPermission().then(refreshNotifyBtn);
+  }
+});
+
+refreshNotifyBtn();
+
+let audioCtx = null;
+function playBeep(){
+  try {
+    audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+    const o = audioCtx.createOscillator();
+    const g = audioCtx.createGain();
+    o.connect(g); g.connect(audioCtx.destination);
+    o.frequency.value = 880;
+    g.gain.setValueAtTime(0.15, audioCtx.currentTime);
+    o.start();
+    o.stop(audioCtx.currentTime + 0.18);
+  } catch (e) {}
+}
+
+function fireAlert(title, body){
+  playBeep();
+  if ('Notification' in window && Notification.permission === 'granted') {
+    try { new Notification(title, { body }); } catch (e) { console.warn('Notification failed:', e); }
+  }
+  sendTelegram(`${title}\n${body}`);
+}
+
+//------------------------------------------------------------------
+// Telegram config + sender
+//------------------------------------------------------------------
+const tgToken = document.getElementById('tgToken');
+const tgChatId = document.getElementById('tgChatId');
+const tgStatus = document.getElementById('tgStatus');
+
+tgToken.value = localStorage.getItem('tg_token') || '';
+tgChatId.value = localStorage.getItem('tg_chat_id') || '';
+
+document.getElementById('tgSaveBtn').addEventListener('click', () => {
+  localStorage.setItem('tg_token', tgToken.value.trim());
+  localStorage.setItem('tg_chat_id', tgChatId.value.trim());
+  tgStatus.textContent = 'Saved.';
+  tgStatus.style.color = 'var(--green)';
+});
+
+document.getElementById('tgTestBtn').addEventListener('click', () => {
+  sendTelegram('✅ Test alert from your P.A.T.+ICT+Retest dashboard.');
+});
+
+function sendTelegram(text){
+  const token = (tgToken.value || localStorage.getItem('tg_token') || '').trim();
+  const chatId = (tgChatId.value || localStorage.getItem('tg_chat_id') || '').trim();
+  if (!token || !chatId) {
+    tgStatus.textContent = 'Add a bot token and chat ID first.';
+    tgStatus.style.color = 'var(--amber)';
+    return;
+  }
+  fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ chat_id: chatId, text })
+  })
+  .then(r => r.json())
+  .then(data => {
+    if (data.ok) {
+      tgStatus.textContent = 'Sent ✓';
+      tgStatus.style.color = 'var(--green)';
+    } else {
+      tgStatus.textContent = 'Telegram error: ' + (data.description || 'unknown');
+      tgStatus.style.color = 'var(--red)';
     }
+  })
+  .catch(err => {
+    tgStatus.textContent = 'Send failed: ' + err.message;
+    tgStatus.style.color = 'var(--red)';
+  });
+}
 
-    $("saveApi").onclick = () => {
-      state.apiKey = $("apiKeyInput").value.trim();
-      state.apiBase = $("apiBaseInput").value.trim() || "https://api.openai.com/v1";
-      state.model = $("modelInput").value.trim() || "gpt-4o-mini";
-      save();
-      renderApiPanel();
-      setLiveButton();
-      logWork([
-        "API settings saved",
-        state.apiKey ? "API key configured" : "API key cleared",
-        "base: " + state.apiBase,
-        "model: " + state.model
-      ]);
-    };
+//------------------------------------------------------------------
+// Structure engine: fractal swings + BOS/CHoCH + liquidity sweep + recent swing points (for trendline)
+//------------------------------------------------------------------
+function computeStructure(candles, lb, atrForSweep){
+  const n = candles.length;
+  if (n < lb * 2 + 3) {
+    return { state: 0, barsSinceBos: 999, lastSwingHigh: null, lastSwingLow: null, breakType: null, impulseStart: null, impulseExtreme: null, sweep: false, recentSwingHighs: [], recentSwingLows: [] };
+  }
 
-    $("showApi").onclick = () => {
-      const input = $("apiKeyInput");
-      input.type = input.type === "password" ? "text" : "password";
-    };
-
-        $("liveMode").onclick = () => {
-      if (!state.apiKey) {
-        state.messages.push({ role: "assistant", text:
-          "LIVE mode is ready, but no API key is configured. Open Settings and add your API key, API base, and model. The key is stored only in this browser's localStorage." });
-        renderChat();
-        return;
-      }
-      state.liveMode = !state.liveMode;
-      save();
-      setLiveButton();
-      logWork([state.liveMode ? "LIVE MODE ENABLED" : "LIVE MODE DISABLED",
-               state.liveMode ? "network AI replies are active" : "offline/local replies are active"]);
-    };
-
-    $("clearLearning").onclick = () => {
-      state.learning = { lessons: [], successfulTasks: 0, failedTasks: 0, preferences: {}, strategyVersion: 1 };
-      save(); updateLearningUI();
-      logWork(["learning memory reset", "strategy version: 1"]);
-    };
-
-    $("exportLearning").onclick = () => {
-      const blob = new Blob([JSON.stringify(state.learning, null, 2)], {type:"application/json"});
-      const a = document.createElement("a");
-      a.href = URL.createObjectURL(blob);
-      a.download = "kayden-learning.json";
-      a.click();
-      URL.revokeObjectURL(a.href);
-    };
-
-    renderChat();
-      renderSide();
+  const swings = [];
+  for (let i = lb; i < n - lb; i++) {
+    let isHigh = true, isLow = true;
+    for (let k = 1; k <= lb; k++) {
+      if (candles[i].high <= candles[i - k].high || candles[i].high <= candles[i + k].high) isHigh = false;
+      if (candles[i].low  >= candles[i - k].low  || candles[i].low  >= candles[i + k].low)  isLow = false;
+      if (!isHigh && !isLow) break;
     }
+    if (isHigh) swings.push({ confirmedAt: i + lb, type: 'H', price: candles[i].high, idx: i });
+    if (isLow)  swings.push({ confirmedAt: i + lb, type: 'L', price: candles[i].low, idx: i });
+  }
+  swings.sort((a, b) => a.confirmedAt - b.confirmedAt);
 
-    $("send").onclick = () => send();
-    $("input").addEventListener("keydown", e => {
-      if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); }
-    });
-    $("newChat").onclick = () => {
-      state.messages = [{ role: "assistant", text: "New thread. What should I take off your plate?" }];
-      save(); renderChat();
-    };
-    $("runDemo").onclick = () => send("Plan a Saturday: farmer’s market, 5k, then dinner for two. Make a grocery list and a timeline.");
+  let lastSwingHigh = null, lastSwingLow = null;
+  let swingHighsSoFar = [], swingLowsSoFar = []; // {idx, price}
+  let state = 0, lastBosIndex = -1, breakType = null, impulseStart = null, impulseExtreme = null, sweep = false;
+  let ptr = 0;
+  const tol = (atrForSweep || 0) * 0.3;
 
-    document.querySelector(".nav").addEventListener("click", e => {
-      const btn = e.target.closest("button");
-      if (!btn) return;
-      document.querySelectorAll(".nav button").forEach(b => b.classList.toggle("active", b === btn));
-      if (btn.dataset.tab === "settings") {
-        state.messages.push({ role: "assistant", text:
-`Settings (saved in this browser only)
-
-Agent name: ${state.name}
-API base: ${state.apiBase}
-Model: ${state.model}
-API key: ${state.apiKey ? "set" : "not set"}
-
-LIVE mode uses the configured OpenAI-compatible endpoint. For real email/calendar/shopping actions, a secure backend or connector is required; the browser-only version does not fake those actions.
-
-To change them, paste a line like:
-name: Nova
-key: sk-...
-base: https://api.groq.com/openai/v1
-model: llama-3.1-8b-instant` });
-    
-
-    function renderApiPanel() {
-      $("apiKeyInput").value = state.apiKey || "";
-      $("apiBaseInput").value = state.apiBase || "https://api.openai.com/v1";
-      $("modelInput").value = state.model || "gpt-4o-mini";
-      $("apiStatus").textContent = state.apiKey
-        ? `API key: configured · ${state.liveMode ? "LIVE mode available" : "LIVE mode is OFF"}`
-        : "API key: not configured";
+  for (let i = 0; i < n; i++) {
+    while (ptr < swings.length && swings[ptr].confirmedAt <= i) {
+      const s = swings[ptr];
+      if (s.type === 'H') { lastSwingHigh = s.price; swingHighsSoFar.push({ idx: s.idx, price: s.price }); }
+      else { lastSwingLow = s.price; swingLowsSoFar.push({ idx: s.idx, price: s.price }); }
+      ptr++;
     }
+    if (i > 0) {
+      const c = candles[i].close;
+      const brokeLow = lastSwingLow !== null && c < lastSwingLow;
+      const brokeHigh = lastSwingHigh !== null && c > lastSwingHigh;
 
-    $("saveApi").onclick = () => {
-      state.apiKey = $("apiKeyInput").value.trim();
-      state.apiBase = $("apiBaseInput").value.trim() || "https://api.openai.com/v1";
-      state.model = $("modelInput").value.trim() || "gpt-4o-mini";
-      save();
-      renderApiPanel();
-      setLiveButton();
-      logWork([
-        "API settings saved",
-        state.apiKey ? "API key configured" : "API key cleared",
-        "base: " + state.apiBase,
-        "model: " + state.model
-      ]);
-    };
-
-    $("showApi").onclick = () => {
-      const input = $("apiKeyInput");
-      input.type = input.type === "password" ? "text" : "password";
-    };
-
-        $("liveMode").onclick = () => {
-      if (!state.apiKey) {
-        state.messages.push({ role: "assistant", text:
-          "LIVE mode is ready, but no API key is configured. Open Settings and add your API key, API base, and model. The key is stored only in this browser's localStorage." });
-        renderChat();
-        return;
+      if (brokeLow) {
+        const oldState = state;
+        const brokenLevel = lastSwingLow;
+        const priorLow = swingLowsSoFar.length >= 2 ? swingLowsSoFar[swingLowsSoFar.length - 2].price : null;
+        sweep = priorLow !== null && Math.abs(brokenLevel - priorLow) <= tol;
+        breakType = oldState === -1 ? 'BOS' : 'CHOCH';
+        state = -1;
+        lastBosIndex = i;
+        impulseStart = brokenLevel;
+        impulseExtreme = candles[i].low;
+        lastSwingLow = null;
+      } else if (brokeHigh) {
+        const oldState = state;
+        const brokenLevel = lastSwingHigh;
+        const priorHigh = swingHighsSoFar.length >= 2 ? swingHighsSoFar[swingHighsSoFar.length - 2].price : null;
+        sweep = priorHigh !== null && Math.abs(brokenLevel - priorHigh) <= tol;
+        breakType = oldState === 1 ? 'BOS' : 'CHOCH';
+        state = 1;
+        lastBosIndex = i;
+        impulseStart = brokenLevel;
+        impulseExtreme = candles[i].high;
+        lastSwingHigh = null;
+      } else if (lastBosIndex !== -1) {
+        if (state === 1 && lastSwingHigh === null) impulseExtreme = Math.max(impulseExtreme, candles[i].high);
+        else if (state === -1 && lastSwingLow === null) impulseExtreme = Math.min(impulseExtreme, candles[i].low);
       }
-      state.liveMode = !state.liveMode;
-      save();
-      setLiveButton();
-      logWork([state.liveMode ? "LIVE MODE ENABLED" : "LIVE MODE DISABLED",
-               state.liveMode ? "network AI replies are active" : "offline/local replies are active"]);
-    };
-
-    $("clearLearning").onclick = () => {
-      state.learning = { lessons: [], successfulTasks: 0, failedTasks: 0, preferences: {}, strategyVersion: 1 };
-      save(); updateLearningUI();
-      logWork(["learning memory reset", "strategy version: 1"]);
-    };
-
-    $("exportLearning").onclick = () => {
-      const blob = new Blob([JSON.stringify(state.learning, null, 2)], {type:"application/json"});
-      const a = document.createElement("a");
-      a.href = URL.createObjectURL(blob);
-      a.download = "kayden-learning.json";
-      a.click();
-      URL.revokeObjectURL(a.href);
-    };
-
-    renderChat();
-      }
-    });
-
-    $("connectors").addEventListener("click", e => {
-      const t = e.target.closest(".toggle");
-      if (!t) return;
-      state.connectors[t.dataset.k] = !state.connectors[t.dataset.k];
-      save(); renderSide();
-      logWork(["connector updated", t.dataset.k + ": " + (state.connectors[t.dataset.k] ? "on" : "off")]);
-    });
-
-    $("ideas").addEventListener("click", e => {
-      const b = e.target.closest("[data-idea]");
-      if (b) send(b.dataset.idea);
-    });
-
-    $("input").addEventListener("input", () => {
-      const v = $("input").value;
-      const set = (k, val) => { if (val) state[k] = val.trim(); };
-      if (/^name:/im.test(v) || /^key:/im.test(v)) {
-        v.split("\n").forEach(line => {
-          const [k, ...rest] = line.split(":");
-          const val = rest.join(":").trim();
-          if (/name/i.test(k)) set("name", val);
-          if (/key/i.test(k)) state.apiKey = val;
-          if (/base/i.test(k)) state.apiBase = val;
-          if (/model/i.test(k)) state.model = val;
-        });
-        save();
-      }
-    });
-
-
-
-    function renderApiPanel() {
-      $("apiKeyInput").value = state.apiKey || "";
-      $("apiBaseInput").value = state.apiBase || "https://api.openai.com/v1";
-      $("modelInput").value = state.model || "gpt-4o-mini";
-      $("apiStatus").textContent = state.apiKey
-        ? `API key: configured · ${state.liveMode ? "LIVE mode available" : "LIVE mode is OFF"}`
-        : "API key: not configured";
     }
+  }
 
-    $("saveApi").onclick = () => {
-      state.apiKey = $("apiKeyInput").value.trim();
-      state.apiBase = $("apiBaseInput").value.trim() || "https://api.openai.com/v1";
-      state.model = $("modelInput").value.trim() || "gpt-4o-mini";
-      save();
-      renderApiPanel();
-      setLiveButton();
-      logWork([
-        "API settings saved",
-        state.apiKey ? "API key configured" : "API key cleared",
-        "base: " + state.apiBase,
-        "model: " + state.model
-      ]);
-    };
+  const barsSinceBos = lastBosIndex === -1 ? 999 : (n - 1 - lastBosIndex);
+  return {
+    state, barsSinceBos, lastSwingHigh, lastSwingLow, breakType, impulseStart, impulseExtreme, sweep,
+    recentSwingHighs: swingHighsSoFar.slice(-2),
+    recentSwingLows: swingLowsSoFar.slice(-2)
+  };
+}
 
-    $("showApi").onclick = () => {
-      const input = $("apiKeyInput");
-      input.type = input.type === "password" ? "text" : "password";
-    };
+function computeATR(candles, period){
+  if (candles.length < period + 1) return null;
+  const trs = [];
+  for (let i = candles.length - period; i < candles.length; i++){
+    const c = candles[i], prev = candles[i - 1];
+    trs.push(Math.max(c.high - c.low, Math.abs(c.high - prev.close), Math.abs(c.low - prev.close)));
+  }
+  return trs.reduce((a,b) => a+b, 0) / period;
+}
 
-        $("liveMode").onclick = () => {
-      if (!state.apiKey) {
-        state.messages.push({ role: "assistant", text:
-          "LIVE mode is ready, but no API key is configured. Open Settings and add your API key, API base, and model. The key is stored only in this browser's localStorage." });
-        renderChat();
-        return;
+function computeOTE(direction, impulseStart, impulseExtreme){
+  if (impulseStart === null || impulseExtreme === null) return null;
+  const range = Math.abs(impulseExtreme - impulseStart);
+  if (range === 0) return null;
+  if (direction === 'BUY') {
+    return { low: impulseExtreme - range * 0.79, high: impulseExtreme - range * 0.618 };
+  }
+  return { low: impulseExtreme + range * 0.618, high: impulseExtreme + range * 0.79 };
+}
+
+function projectTrendline(points, atIdx){
+  if (!points || points.length < 2) return null;
+  const a = points[points.length - 2], b = points[points.length - 1];
+  if (b.idx === a.idx) return null;
+  const slope = (b.price - a.price) / (b.idx - a.idx);
+  return b.price + slope * (atIdx - b.idx);
+}
+
+function getCandidateZones(direction, m1res, atr){
+  const zones = [];
+  const tol = atr * 0.3;
+  const ote = computeOTE(direction, m1res.impulseStart, m1res.impulseExtreme);
+  if (ote) zones.push({ type: 'OTE', low: ote.low, high: ote.high });
+  if (m1res.impulseStart !== null) {
+    zones.push({ type: 'Broken level', low: m1res.impulseStart - tol, high: m1res.impulseStart + tol });
+  }
+  const idx = m1Candles.length - 1;
+  if (direction === 'SELL' && m1res.recentSwingHighs.length >= 2) {
+    const proj = projectTrendline(m1res.recentSwingHighs, idx);
+    if (proj !== null) zones.push({ type: 'Trendline', low: proj - tol, high: proj + tol });
+  }
+  if (direction === 'BUY' && m1res.recentSwingLows.length >= 2) {
+    const proj = projectTrendline(m1res.recentSwingLows, idx);
+    if (proj !== null) zones.push({ type: 'Trendline', low: proj - tol, high: proj + tol });
+  }
+  return zones;
+}
+
+function isConfirmationCandle(candle, direction, zoneLow, zoneHigh, atr){
+  if (!candle) return false;
+  const touchedZone = candle.high >= zoneLow && candle.low <= zoneHigh;
+  if (!touchedZone) return false;
+  const bodySize = Math.abs(candle.close - candle.open);
+  const strongCandle = bodySize >= atr * 0.5;
+  if (direction === 'SELL') {
+    const wickRejection = candle.high >= zoneLow && candle.close < zoneLow;
+    const strongMomentum = strongCandle && candle.close < candle.open && candle.close <= zoneHigh;
+    return wickRejection || strongMomentum;
+  }
+  const wickRejection = candle.low <= zoneHigh && candle.close > zoneHigh;
+  const strongMomentum = strongCandle && candle.close > candle.open && candle.close >= zoneLow;
+  return wickRejection || strongMomentum;
+}
+
+function structureToValue(res, decayPerBar){
+  if (!res || res.state === 0) return 50;
+  const bars = Math.min(res.barsSinceBos, 100);
+  if (res.state === 1) return Math.max(50, 92 - decayPerBar * bars);
+  return Math.min(50, 8 + decayPerBar * bars);
+}
+
+function zoneOf(value){
+  if (value >= 60) return 'BUY';
+  if (value <= 40) return 'SELL';
+  return 'NEUTRAL';
+}
+
+function labelAndColor(value, res){
+  if (!res || res.state === 0) return ['NO STRUCTURE', '#5f7d92'];
+  if (res.state === 1) return value >= 75 ? ['BULLISH BOS', '#3ddc84'] : ['BULLISH (AGING)', '#7be0a0'];
+  return value <= 25 ? ['BEARISH BOS', '#ff4d4d'] : ['BEARISH (AGING)', '#ffb020'];
+}
+
+function updateGaugeVisual(prefix, value, res){
+  const deg = (value / 100) * 180;
+  document.getElementById(prefix + 'Needle').setAttribute('transform', `rotate(${deg},340,260)`);
+  document.getElementById(prefix + 'ValLabel').textContent = Math.round(value);
+  const [label, color] = labelAndColor(value, res);
+  const statusEl = document.getElementById(prefix + 'StatusLabel');
+  statusEl.textContent = label;
+  statusEl.setAttribute('fill', color);
+  document.getElementById(prefix + 'ValLabel').setAttribute('fill', color);
+}
+
+function recomputeH1(){
+  const price = h1Candles[h1Candles.length - 1]?.close;
+  if (price !== undefined) document.getElementById('h1Price').textContent = price.toFixed(3);
+  const res = computeStructure(h1Candles, lookback);
+  document.getElementById('h1SwingHigh').textContent = res.lastSwingHigh !== null ? res.lastSwingHigh.toFixed(3) : '—';
+  document.getElementById('h1SwingLow').textContent  = res.lastSwingLow  !== null ? res.lastSwingLow.toFixed(3)  : '—';
+  if (h1Candles.length < lookback * 2 + 3) return;
+  const value = structureToValue(res, H1_DECAY_PER_BAR);
+  updateGaugeVisual('h1', value, res);
+  h1Zone = zoneOf(value);
+}
+
+function recomputeM1(){
+  const price = m1Candles[m1Candles.length - 1]?.close;
+  if (price !== undefined) document.getElementById('m1Price').textContent = price.toFixed(3);
+  const atr = computeATR(m1Candles, ATR_PERIOD);
+  const res = computeStructure(m1Candles, lookback, atr);
+  document.getElementById('m1SwingHigh').textContent = res.lastSwingHigh !== null ? res.lastSwingHigh.toFixed(3) : '—';
+  document.getElementById('m1SwingLow').textContent  = res.lastSwingLow  !== null ? res.lastSwingLow.toFixed(3)  : '—';
+  document.getElementById('m1BreakType').textContent = res.breakType || '—';
+  document.getElementById('m1Sweep').textContent = res.breakType ? (res.sweep ? 'YES' : 'no') : '—';
+  if (m1Candles.length < lookback * 2 + 3) return;
+  const value = structureToValue(res, M1_DECAY_PER_BAR);
+  updateGaugeVisual('m1', value, res);
+  m1Zone = zoneOf(value);
+  manageTrade(res, atr);
+}
+
+function renderIdleBanner(){
+  const banner = document.getElementById('sniperBanner');
+  const sub = banner.querySelector('.sniper-sub');
+  const stats = document.getElementById('tpStats');
+  banner.classList.remove('buy', 'sell', 'tp', 'armed');
+  banner.firstChild.textContent = 'NO ALIGNMENT — WAIT ';
+  sub.textContent = 'H1 trend and M1 timing are not agreeing';
+  stats.style.display = 'none';
+  document.getElementById('m1Zones').textContent = '—';
+}
+
+function renderArmedBanner(zones){
+  const banner = document.getElementById('sniperBanner');
+  const sub = banner.querySelector('.sniper-sub');
+  banner.classList.remove('buy', 'sell', 'tp');
+  banner.classList.add('armed');
+  banner.firstChild.textContent = `ARMED: ${pendingSetup.direction} — WAITING FOR CONFIRMATION `;
+  const tag = pendingSetup.breakType === 'CHOCH' ? 'CHoCH' : 'BOS';
+  const sweepTag = pendingSetup.sweep ? ' + liquidity sweep' : '';
+  const zoneText = (zones && zones.length)
+    ? zones.map(z => `${z.type} ${z.low.toFixed(3)}–${z.high.toFixed(3)}`).join(' · ')
+    : 'computing zones…';
+  sub.textContent = `${tag}${sweepTag} · watching for wick rejection or strong candle at: ${zoneText}`;
+  document.getElementById('m1Zones').textContent = (zones && zones.length) ? zones.map(z => z.type).join(', ') : '—';
+}
+
+function manageTrade(m1res, atr){
+  const banner = document.getElementById('sniperBanner');
+  const sub = banner.querySelector('.sniper-sub');
+  const stats = document.getElementById('tpStats');
+  const price = m1Candles[m1Candles.length - 1]?.close;
+  if (price === undefined) return;
+
+  // --- Managing an already-triggered trade ---
+  if (activeTrade) {
+    const aligned = (h1Zone === m1Zone) && h1Zone !== 'NEUTRAL';
+    const direction = aligned ? h1Zone : null;
+    const favorable = (target) => activeTrade.direction === 'BUY' ? price >= target : price <= target;
+    const reversed = aligned && direction !== activeTrade.direction;
+
+    if (!activeTrade.hit1 && favorable(activeTrade.tp1)) {
+      activeTrade.hit1 = true;
+      document.getElementById('tp1Stat').classList.add('hit');
+      fireAlert(`✅ TP1 HIT — ${activeTrade.direction}`, `${DISPLAY_NAME}: TP1 reached at ${price.toFixed(3)}`);
+    }
+    if (!activeTrade.hit2 && favorable(activeTrade.tp2)) {
+      activeTrade.hit2 = true;
+      document.getElementById('tp2Stat').classList.add('hit');
+      fireAlert(`✅ TP2 HIT — ${activeTrade.direction}`, `${DISPLAY_NAME}: TP2 reached at ${price.toFixed(3)}`);
+    }
+    if (!activeTrade.hit3 && favorable(activeTrade.tp3)) {
+      activeTrade.hit3 = true;
+      document.getElementById('tp3Stat').classList.add('hit');
+      fireAlert(`✅ TP3 HIT — FULL EXIT ${activeTrade.direction}`, `${DISPLAY_NAME}: TP3 reached at ${price.toFixed(3)} — setup complete`);
+      banner.classList.remove('buy','sell','armed');
+      banner.classList.add('tp');
+      banner.firstChild.textContent = `TP3 HIT — EXIT ${activeTrade.direction} `;
+      sub.textContent = `All targets reached at ${price.toFixed(3)}`;
+      activeTrade = null;
+      stats.style.display = 'none';
+      return;
+    }
+    if (reversed) {
+      fireAlert(`⚠️ Signal reversed — Exit ${activeTrade.direction}`, `${DISPLAY_NAME}: trend flipped before TP3, last ${price.toFixed(3)} (TP1 ${activeTrade.hit1?'hit':'missed'}, TP2 ${activeTrade.hit2?'hit':'missed'})`);
+      banner.classList.remove('buy','sell','armed');
+      banner.classList.add('tp');
+      banner.firstChild.textContent = `EXIT — SIGNAL REVERSED `;
+      sub.textContent = `Trend flipped before TP3 · last ${price.toFixed(3)}`;
+      activeTrade = null;
+      stats.style.display = 'none';
+      return;
+    }
+    sub.textContent = `Last ${price.toFixed(3)} · holding ${activeTrade.direction}`;
+    return;
+  }
+
+  // --- No active trade: manage the pending (armed) setup ---
+  const isFreshBreakThisBar = m1res.barsSinceBos === 0 && m1res.breakType !== null;
+  const m1Direction = m1res.state === 1 ? 'BUY' : m1res.state === -1 ? 'SELL' : null;
+
+  if (isFreshBreakThisBar && m1Direction && h1Zone === m1Direction) {
+    pendingSetup = { direction: m1Direction, breakType: m1res.breakType, sweep: m1res.sweep };
+  } else if (pendingSetup) {
+    if (h1Zone !== pendingSetup.direction) {
+      pendingSetup = null;
+    } else if (m1Direction && m1Direction !== pendingSetup.direction) {
+      pendingSetup = null;
+    }
+  }
+
+  if (pendingSetup) {
+    const closedCandle = m1Candles.length >= 2 ? m1Candles[m1Candles.length - 2] : null;
+    const zones = atr ? getCandidateZones(pendingSetup.direction, m1res, atr) : [];
+    let triggeredZone = null;
+    if (atr) {
+      for (const z of zones) {
+        if (isConfirmationCandle(closedCandle, pendingSetup.direction, z.low, z.high, atr)) { triggeredZone = z; break; }
       }
-      state.liveMode = !state.liveMode;
-      save();
-      setLiveButton();
-      logWork([state.liveMode ? "LIVE MODE ENABLED" : "LIVE MODE DISABLED",
-               state.liveMode ? "network AI replies are active" : "offline/local replies are active"]);
-    };
+    }
+    if (triggeredZone && closedCandle && atr) {
+      const dir = pendingSetup.direction;
+      const step = atr * tpStep;
+      const sign = dir === 'BUY' ? 1 : -1;
+      const entryPrice = closedCandle.close;
+      const tag = pendingSetup.breakType === 'CHOCH' ? 'CHoCH' : 'BOS';
+      const sweepTag = pendingSetup.sweep ? ' + liquidity sweep' : '';
+      activeTrade = {
+        direction: dir, entryPrice,
+        tp1: entryPrice + sign * step, tp2: entryPrice + sign * 2 * step, tp3: entryPrice + sign * 3 * step,
+        hit1: false, hit2: false, hit3: false
+      };
+      stats.style.display = 'flex';
+      document.getElementById('entryStat').textContent = entryPrice.toFixed(3);
+      document.getElementById('tp1Stat').textContent = activeTrade.tp1.toFixed(3);
+      document.getElementById('tp2Stat').textContent = activeTrade.tp2.toFixed(3);
+      document.getElementById('tp3Stat').textContent = activeTrade.tp3.toFixed(3);
+      ['tp1Stat','tp2Stat','tp3Stat'].forEach(id => document.getElementById(id).classList.remove('hit'));
+      banner.classList.remove('armed','tp');
+      banner.classList.add(dir === 'BUY' ? 'buy' : 'sell');
+      banner.firstChild.textContent = `SNIPER ENTRY: ${dir} `;
+      sub.textContent = `${tag}${sweepTag} · ${triggeredZone.type} retest confirmed · TP step ${tpStep}× ATR M1`;
+      fireAlert(`🎯 SNIPER ENTRY: ${dir} (${tag}${sweepTag})`, `${DISPLAY_NAME}: entry ${entryPrice.toFixed(3)} on ${triggeredZone.type} retest\nTP1 ${activeTrade.tp1.toFixed(3)} · TP2 ${activeTrade.tp2.toFixed(3)} · TP3 ${activeTrade.tp3.toFixed(3)}`);
+      pendingSetup = null;
+      return;
+    }
+    renderArmedBanner(zones);
+    return;
+  }
 
-    $("clearLearning").onclick = () => {
-      state.learning = { lessons: [], successfulTasks: 0, failedTasks: 0, preferences: {}, strategyVersion: 1 };
-      save(); updateLearningUI();
-      logWork(["learning memory reset", "strategy version: 1"]);
-    };
+  renderIdleBanner();
+}
 
-    $("exportLearning").onclick = () => {
-      const blob = new Blob([JSON.stringify(state.learning, null, 2)], {type:"application/json"});
-      const a = document.createElement("a");
-      a.href = URL.createObjectURL(blob);
-      a.download = "kayden-learning.json";
-      a.click();
-      URL.revokeObjectURL(a.href);
-    };
+setInterval(() => { if (ws && ws.readyState === WebSocket.OPEN && SYMBOL) fetchCandles(GRAN_H1, 200); }, H1_REFRESH_MS);
 
-    renderChat();
-    renderSide();
-    setLiveButton();
-    updateLearningUI();
-    renderApiPanel();
-  </script>
+connect();
+</script>
 </body>
 </html>
