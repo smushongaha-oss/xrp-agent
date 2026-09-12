@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Muse-like Agent</title>
+  <title>Kayden Live Agent</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
   <style>
@@ -123,8 +123,8 @@
       <div class="brand">
         <div class="avatar" id="avatarMark">M</div>
         <div>
-          <h1 id="agentName">Muse-like</h1>
-          <p>Personal agent · local / GitHub Pages</p>
+          <h1 id="agentName">Kayden Live</h1>
+          <p>Live AI agent · persistent learning</p>
         </div>
       </div>
       <nav class="nav">
@@ -144,7 +144,8 @@
         <div class="status"><span class="dot"></span> Secure workspace · isolated tab</div>
         <div class="row">
           <button class="chip" id="newChat">New thread</button>
-          <button class="chip" id="runDemo">Run demo task</button>
+          <button class="chip" id="liveMode">LIVE: OFF</button>
+          <button class="chip hidden" id="runDemo">Run demo task</button>
         </div>
       </div>
       <section class="chat" id="chat"></section>
@@ -160,6 +161,15 @@
       <div class="rail-inner">
         <h3>Workspace</h3>
         <div class="workspace" id="workspace">idle · waiting for a task</div>
+        <h3>Learning</h3>
+        <div class="card">
+          <b id="learningStatus">Learning: ON</b>
+          <div class="tiny" id="learningStats">0 lessons · 0 successful tasks</div>
+          <div class="row" style="margin-top:8px">
+            <button class="ghost" id="clearLearning">Reset learning</button>
+            <button class="ghost" id="exportLearning">Export learning</button>
+          </div>
+        </div>
         <h3>Goals</h3>
         <div id="goals"></div>
         <h3>Ideas</h3>
@@ -172,7 +182,7 @@
     const state = {
       name: localStorage.getItem("agentName") || "Muse-like",
       messages: JSON.parse(localStorage.getItem("msgs") || "null") || [
-        { role: "assistant", text: "I’m a Muse-style personal agent that runs entirely in this page. Connect mock apps on the left, give me a goal, or paste an OpenAI-compatible key in Settings for live replies.\n\nTry: “Turn tonight’s dinner idea into a grocery list and a 3-step plan.”" }
+        { role: "assistant", text: "I’m a Muse-style personal agent that runs entirely in this page. Connect apps on the left, give me a goal, or configure an OpenAI-compatible API in Settings for live replies.\n\nTry: “Turn tonight’s dinner idea into a grocery list and a 3-step plan.”" }
       ],
       goals: JSON.parse(localStorage.getItem("goals") || "null") || [
         { title: "Keep weekly admin off your plate", done: false },
@@ -183,7 +193,15 @@
       },
       apiBase: localStorage.getItem("apiBase") || "https://api.openai.com/v1",
       apiKey: localStorage.getItem("apiKey") || "",
-      model: localStorage.getItem("model") || "gpt-4o-mini"
+      model: localStorage.getItem("model") || "gpt-4o-mini",
+      liveMode: localStorage.getItem("liveMode") === "true",
+      learning: JSON.parse(localStorage.getItem("learning") || "null") || {
+        lessons: [],
+        successfulTasks: 0,
+        failedTasks: 0,
+        preferences: {},
+        strategyVersion: 1
+      }
     };
 
     const $ = id => document.getElementById(id);
@@ -198,6 +216,8 @@
       localStorage.setItem("apiBase", state.apiBase);
       localStorage.setItem("apiKey", state.apiKey);
       localStorage.setItem("model", state.model);
+      localStorage.setItem("liveMode", String(state.liveMode));
+      localStorage.setItem("learning", JSON.stringify(state.learning));
     }
 
     function renderChat() {
@@ -232,6 +252,46 @@
       workspace.textContent = lines.join("\n");
     }
 
+
+    function updateLearningUI() {
+      const el = $("learningStats");
+      if (el) el.textContent =
+        `${state.learning.lessons.length} lessons · ${state.learning.successfulTasks} successful tasks`;
+      const st = $("learningStatus");
+      if (st) st.textContent = `Learning: ${state.learning.lessons.length ? "ACTIVE" : "ON"}`;
+    }
+
+    function rememberLesson(prompt, result, success=true) {
+      const lesson = {
+        time: new Date().toISOString(),
+        prompt: prompt.slice(0, 500),
+        result: result.slice(0, 800),
+        success
+      };
+      state.learning.lessons.unshift(lesson);
+      state.learning.lessons = state.learning.lessons.slice(0, 100);
+      if (success) state.learning.successfulTasks++;
+      else state.learning.failedTasks++;
+      state.learning.strategyVersion++;
+      save();
+      updateLearningUI();
+    }
+
+    function learningContext() {
+      const recent = state.learning.lessons.slice(0, 8);
+      if (!recent.length) return "No previous lessons yet.";
+      return recent.map((x,i) =>
+        `${i+1}. ${x.success ? "SUCCESS" : "FAILED"}: ${x.prompt}\nOutcome: ${x.result}`
+      ).join("\n\n");
+    }
+
+    function setLiveButton() {
+      const b = $("liveMode");
+      if (!b) return;
+      b.textContent = state.liveMode ? "LIVE: ON" : "LIVE: OFF";
+      b.style.borderColor = state.liveMode ? "var(--ok)" : "var(--line)";
+    }
+
     function localAgent(prompt) {
       const on = Object.entries(state.connectors).filter(([,v]) => v).map(([k]) => k);
       const connected = on.length ? on.join(", ") : "none";
@@ -258,7 +318,7 @@
         "planning steps…",
         "writing response…"
       ]);
-      if (state.apiKey) {
+      if (state.liveMode && state.apiKey) {
         try {
           const res = await fetch(state.apiBase.replace(/\/$/, "") + "/chat/completions", {
             method: "POST",
@@ -269,22 +329,33 @@
             body: JSON.stringify({
               model: state.model,
               messages: [
-                { role: "system", content: "You are a personal AI agent similar to Meta Muse. Be concise, action-oriented, propose plans, drafts, and next steps. Never claim you actually sent email or charged a card unless clearly simulating." },
+                { role: "system", content:
+                  "You are Kayden Live, a persistent personal AI agent. Be direct, action-oriented and honest. " +
+                  "Use previous lessons to improve future answers. Do not claim external actions happened unless the connected service actually confirms them. " +
+                  "When a task succeeds, identify what worked and reuse it. When a task fails, diagnose the failure and avoid repeating it. " +
+                  "Continuously refine your response strategy from the user's feedback and task outcomes. " +
+                  "\n\nLEARNED HISTORY:\n" + learningContext()
+                },
                 ...state.messages.slice(-8).map(m => ({ role: m.role, content: m.text }))
               ]
             })
           });
           const data = await res.json();
           const text = data.choices?.[0]?.message?.content || JSON.stringify(data, null, 2);
-          logWork([workspace.textContent, "model: done"]);
+          logWork([workspace.textContent, "model: done", "learning: lesson saved"]);
+          rememberLesson(prompt, text, true);
           return text;
         } catch (err) {
-          return "API error: " + err.message + "\nFalling back to local agent.\n\n" + localAgent(prompt);
+          const fallback = "API error: " + err.message + "\n\nFalling back to the local agent.\n\n" + localAgent(prompt);
+            rememberLesson(prompt, fallback, false);
+            return fallback;
         }
       }
       await new Promise(r => setTimeout(r, 500));
-      logWork([workspace.textContent, "local agent: done", "no network key in use"]);
-      return localAgent(prompt);
+      logWork([workspace.textContent, "local agent: done", state.liveMode ? "live mode needs an API key" : "offline mode", "learning: lesson saved"]);
+      const local = localAgent(prompt);
+      rememberLesson(prompt, local, false);
+      return local;
     }
 
     async function send(text) {
@@ -292,14 +363,74 @@
       if (!prompt) return;
       $("input").value = "";
       state.messages.push({ role: "user", text: prompt });
-      renderChat();
+  
+    $("liveMode").onclick = () => {
+      if (!state.apiKey) {
+        state.messages.push({ role: "assistant", text:
+          "LIVE mode is ready, but no API key is configured. Open Settings and add your API key, API base, and model. The key is stored only in this browser's localStorage." });
+        renderChat();
+        return;
+      }
+      state.liveMode = !state.liveMode;
+      save();
+      setLiveButton();
+      logWork([state.liveMode ? "LIVE MODE ENABLED" : "LIVE MODE DISABLED",
+               state.liveMode ? "network AI replies are active" : "offline/local replies are active"]);
+    };
+
+    $("clearLearning").onclick = () => {
+      state.learning = { lessons: [], successfulTasks: 0, failedTasks: 0, preferences: {}, strategyVersion: 1 };
+      save(); updateLearningUI();
+      logWork(["learning memory reset", "strategy version: 1"]);
+    };
+
+    $("exportLearning").onclick = () => {
+      const blob = new Blob([JSON.stringify(state.learning, null, 2)], {type:"application/json"});
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = "kayden-learning.json";
+      a.click();
+      URL.revokeObjectURL(a.href);
+    };
+
+    renderChat();
       const out = await reply(prompt);
       state.messages.push({ role: "assistant", text: out });
       if (/send it|buy the list|mark done/i.test(prompt)) {
         state.goals = state.goals.map((g,i) => i === 0 ? { ...g, done: true } : g);
       }
       save();
-      renderChat();
+  
+    $("liveMode").onclick = () => {
+      if (!state.apiKey) {
+        state.messages.push({ role: "assistant", text:
+          "LIVE mode is ready, but no API key is configured. Open Settings and add your API key, API base, and model. The key is stored only in this browser's localStorage." });
+        renderChat();
+        return;
+      }
+      state.liveMode = !state.liveMode;
+      save();
+      setLiveButton();
+      logWork([state.liveMode ? "LIVE MODE ENABLED" : "LIVE MODE DISABLED",
+               state.liveMode ? "network AI replies are active" : "offline/local replies are active"]);
+    };
+
+    $("clearLearning").onclick = () => {
+      state.learning = { lessons: [], successfulTasks: 0, failedTasks: 0, preferences: {}, strategyVersion: 1 };
+      save(); updateLearningUI();
+      logWork(["learning memory reset", "strategy version: 1"]);
+    };
+
+    $("exportLearning").onclick = () => {
+      const blob = new Blob([JSON.stringify(state.learning, null, 2)], {type:"application/json"});
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = "kayden-learning.json";
+      a.click();
+      URL.revokeObjectURL(a.href);
+    };
+
+    renderChat();
       renderSide();
     }
 
@@ -326,12 +457,44 @@ API base: ${state.apiBase}
 Model: ${state.model}
 API key: ${state.apiKey ? "set" : "not set"}
 
+LIVE mode uses the configured OpenAI-compatible endpoint. For real email/calendar/shopping actions, a secure backend or connector is required; the browser-only version does not fake those actions.
+
 To change them, paste a line like:
 name: Nova
 key: sk-...
 base: https://api.groq.com/openai/v1
 model: llama-3.1-8b-instant` });
+    
+    $("liveMode").onclick = () => {
+      if (!state.apiKey) {
+        state.messages.push({ role: "assistant", text:
+          "LIVE mode is ready, but no API key is configured. Open Settings and add your API key, API base, and model. The key is stored only in this browser's localStorage." });
         renderChat();
+        return;
+      }
+      state.liveMode = !state.liveMode;
+      save();
+      setLiveButton();
+      logWork([state.liveMode ? "LIVE MODE ENABLED" : "LIVE MODE DISABLED",
+               state.liveMode ? "network AI replies are active" : "offline/local replies are active"]);
+    };
+
+    $("clearLearning").onclick = () => {
+      state.learning = { lessons: [], successfulTasks: 0, failedTasks: 0, preferences: {}, strategyVersion: 1 };
+      save(); updateLearningUI();
+      logWork(["learning memory reset", "strategy version: 1"]);
+    };
+
+    $("exportLearning").onclick = () => {
+      const blob = new Blob([JSON.stringify(state.learning, null, 2)], {type:"application/json"});
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = "kayden-learning.json";
+      a.click();
+      URL.revokeObjectURL(a.href);
+    };
+
+    renderChat();
       }
     });
 
@@ -364,8 +527,40 @@ model: llama-3.1-8b-instant` });
       }
     });
 
+
+    $("liveMode").onclick = () => {
+      if (!state.apiKey) {
+        state.messages.push({ role: "assistant", text:
+          "LIVE mode is ready, but no API key is configured. Open Settings and add your API key, API base, and model. The key is stored only in this browser's localStorage." });
+        renderChat();
+        return;
+      }
+      state.liveMode = !state.liveMode;
+      save();
+      setLiveButton();
+      logWork([state.liveMode ? "LIVE MODE ENABLED" : "LIVE MODE DISABLED",
+               state.liveMode ? "network AI replies are active" : "offline/local replies are active"]);
+    };
+
+    $("clearLearning").onclick = () => {
+      state.learning = { lessons: [], successfulTasks: 0, failedTasks: 0, preferences: {}, strategyVersion: 1 };
+      save(); updateLearningUI();
+      logWork(["learning memory reset", "strategy version: 1"]);
+    };
+
+    $("exportLearning").onclick = () => {
+      const blob = new Blob([JSON.stringify(state.learning, null, 2)], {type:"application/json"});
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = "kayden-learning.json";
+      a.click();
+      URL.revokeObjectURL(a.href);
+    };
+
     renderChat();
     renderSide();
+    setLiveButton();
+    updateLearningUI();
   </script>
 </body>
 </html>
