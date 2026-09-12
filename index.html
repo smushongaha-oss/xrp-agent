@@ -1,0 +1,703 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Kayden Live Agent</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #0b0c10;
+      --panel: #12141a;
+      --panel-2: #181b23;
+      --line: #2a2e38;
+      --text: #ececf1;
+      --muted: #9aa3b2;
+      --accent: #7c5cff;
+      --accent-2: #3ee0c5;
+      --warn: #ffb020;
+      --danger: #ff5d73;
+      --ok: #3ee0c5;
+      --radius: 16px;
+    }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; margin: 0; background: var(--bg); color: var(--text); font-family: "Instrument Sans", system-ui, sans-serif; }
+    button, input, textarea, select { font: inherit; color: inherit; }
+    button { cursor: pointer; }
+    .app {
+      display: grid;
+      grid-template-columns: 280px 1fr 360px;
+      height: 100%;
+    }
+    @media (max-width: 1100px) {
+      .app { grid-template-columns: 1fr; grid-template-rows: auto 1fr auto; }
+      .side, .rail { display: none; }
+      .side.open, .rail.open { display: block; }
+    }
+    .side, .rail, .main { border-right: 1px solid var(--line); }
+    .rail { border-right: 0; border-left: 1px solid var(--line); }
+    .brand {
+      padding: 20px 18px 12px;
+      display: flex; align-items: center; gap: 12px;
+    }
+    .avatar {
+      width: 42px; height: 42px; border-radius: 14px;
+      background: radial-gradient(circle at 30% 20%, #cbb6ff, var(--accent) 45%, #2b1d6e);
+      display: grid; place-items: center; font-weight: 700;
+    }
+    .brand h1 { font-size: 16px; margin: 0; }
+    .brand p { margin: 2px 0 0; color: var(--muted); font-size: 12px; }
+    .nav { padding: 8px; display: grid; gap: 6px; }
+    .nav button, .chip, .primary, .ghost {
+      border: 1px solid transparent; border-radius: 12px; padding: 10px 12px; background: transparent; text-align: left;
+    }
+    .nav button.active, .nav button:hover { background: var(--panel-2); border-color: var(--line); }
+    .connectors { padding: 8px 16px 20px; }
+    .connectors h3, .rail h3, .workspace-head span { font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin: 16px 0 8px; }
+    .conn {
+      display: flex; justify-content: space-between; align-items: center;
+      background: var(--panel-2); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; margin-bottom: 8px;
+    }
+    .toggle { width: 38px; height: 22px; border-radius: 99px; background: #2c313c; position: relative; border: 0; }
+    .toggle.on { background: #3b2fa0; }
+    .toggle::after {
+      content: ""; position: absolute; width: 16px; height: 16px; border-radius: 50%;
+      background: white; top: 3px; left: 3px; transition: .2s;
+    }
+    .toggle.on::after { left: 19px; }
+    .main { display: flex; flex-direction: column; min-width: 0; }
+    .topbar {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 14px 18px; border-bottom: 1px solid var(--line);
+    }
+    .status { display: flex; gap: 8px; align-items: center; color: var(--muted); font-size: 13px; }
+    .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--ok); box-shadow: 0 0 8px var(--ok); }
+    .chip { background: var(--panel-2); border-color: var(--line); font-size: 13px; }
+    .chat { flex: 1; overflow: auto; padding: 22px; display: flex; flex-direction: column; gap: 16px; }
+    .msg { max-width: 720px; }
+    .msg.user { margin-left: auto; }
+    .bubble {
+      background: var(--panel-2); border: 1px solid var(--line); border-radius: 18px; padding: 12px 14px; line-height: 1.5; white-space: pre-wrap;
+    }
+    .msg.user .bubble { background: #231d44; border-color: #3b3170; }
+    .meta { font-size: 12px; color: var(--muted); margin-bottom: 6px; }
+    .composer {
+      padding: 14px; border-top: 1px solid var(--line);
+    }
+    .box {
+      display: flex; gap: 10px; background: var(--panel-2); border: 1px solid var(--line);
+      border-radius: 18px; padding: 10px;
+    }
+    textarea {
+      flex: 1; resize: none; min-height: 48px; max-height: 160px;
+      background: transparent; border: 0; outline: none;
+    }
+    .primary {
+      background: var(--accent); color: white; font-weight: 600; border: 0; padding: 10px 14px; white-space: nowrap;
+    }
+    .ghost { border-color: var(--line); background: transparent; }
+    .rail { background: var(--panel); overflow: auto; }
+    .rail-inner { padding: 16px; }
+    .card {
+      background: var(--panel-2); border: 1px solid var(--line); border-radius: var(--radius); padding: 12px; margin-bottom: 10px;
+    }
+    .card b { display: block; margin-bottom: 4px; }
+    .tiny { color: var(--muted); font-size: 13px; }
+    .workspace {
+      font-family: "JetBrains Mono", monospace; font-size: 12px; background: #0e1016;
+      border: 1px solid var(--line); border-radius: 12px; min-height: 180px; padding: 10px; color: #c9d1e0;
+      white-space: pre-wrap;
+    }
+    .settings { display: grid; gap: 8px; }
+    .settings input, .settings select {
+      width: 100%; background: #0e1016; border: 1px solid var(--line); border-radius: 10px; padding: 9px 10px;
+    }
+    .row { display: flex; gap: 8px; flex-wrap: wrap; }
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <aside class="side" id="side">
+      <div class="brand">
+        <div class="avatar" id="avatarMark">M</div>
+        <div>
+          <h1 id="agentName">Kayden Live</h1>
+          <p>Live AI agent · persistent learning</p>
+        </div>
+      </div>
+      <nav class="nav">
+        <button class="active" data-tab="chat">Chat</button>
+        <button data-tab="goals">Goals</button>
+        <button data-tab="artifacts">Artifacts</button>
+        <button data-tab="settings">Settings</button>
+      </nav>
+      <div class="connectors">
+        <h3>Connectors</h3>
+        <div id="connectors"></div>
+      </div>
+    </aside>
+
+    <main class="main">
+      <div class="topbar">
+        <div class="status"><span class="dot"></span> Secure workspace · isolated tab</div>
+        <div class="row">
+          <button class="chip" id="newChat">New thread</button>
+          <button class="chip" id="liveMode">LIVE: OFF</button>
+          <button class="chip hidden" id="runDemo">Run demo task</button>
+        </div>
+      </div>
+      <section class="chat" id="chat"></section>
+      <div class="api-panel" id="apiPanel" style="display:none;padding:14px;border-top:1px solid var(--line);background:var(--panel);">
+          <div class="card" style="margin:0;">
+            <b>Live API Configuration</b>
+            <div class="tiny" style="margin-bottom:10px;">Enter your API key here to enable LIVE AI replies. The key is stored only in this browser.</div>
+            <div class="settings">
+              <input id="apiKeyInput" type="password" placeholder="API key (e.g. sk-...)" autocomplete="off">
+              <input id="apiBaseInput" type="text" placeholder="API base URL">
+              <input id="modelInput" type="text" placeholder="Model name">
+              <div class="row">
+                <button class="primary" id="saveApi">Save API Settings</button>
+                <button class="ghost" id="showApi">Show / Hide key</button>
+              </div>
+              <div class="tiny" id="apiStatus">API key: not configured</div>
+            </div>
+          </div>
+        </div>
+        <div class="composer">
+        <div class="box">
+          <textarea id="input" placeholder="Ask the agent to plan, draft, research, or simulate a task…"></textarea>
+          <button class="primary" id="send">Send</button>
+        </div>
+      </div>
+    </main>
+
+    <aside class="rail" id="rail">
+      <div class="rail-inner">
+        <h3>Workspace</h3>
+        <div class="workspace" id="workspace">idle · waiting for a task</div>
+        <h3>Learning</h3>
+        <div class="card">
+          <b id="learningStatus">Learning: ON</b>
+          <div class="tiny" id="learningStats">0 lessons · 0 successful tasks</div>
+          <div class="row" style="margin-top:8px">
+            <button class="ghost" id="clearLearning">Reset learning</button>
+            <button class="ghost" id="exportLearning">Export learning</button>
+          </div>
+        </div>
+        <h3>Goals</h3>
+        <div id="goals"></div>
+        <h3>Ideas</h3>
+        <div id="ideas"></div>
+      </div>
+    </aside>
+  </div>
+
+  <script>
+    const state = {
+      name: localStorage.getItem("agentName") || "Muse-like",
+      messages: JSON.parse(localStorage.getItem("msgs") || "null") || [
+        { role: "assistant", text: "I’m a Muse-style personal agent that runs entirely in this page. Connect apps on the left, give me a goal, or configure an OpenAI-compatible API in Settings for live replies.\n\nTry: “Turn tonight’s dinner idea into a grocery list and a 3-step plan.”" }
+      ],
+      goals: JSON.parse(localStorage.getItem("goals") || "null") || [
+        { title: "Keep weekly admin off your plate", done: false },
+        { title: "Draft outreach without leaving chat", done: false }
+      ],
+      connectors: JSON.parse(localStorage.getItem("connectors") || "null") || {
+        Email: false, Calendar: false, Shopping: true, Notes: true, Travel: false
+      },
+      apiBase: localStorage.getItem("apiBase") || "https://api.openai.com/v1",
+      apiKey: localStorage.getItem("apiKey") || "",
+      model: localStorage.getItem("model") || "gpt-4o-mini",
+      liveMode: localStorage.getItem("liveMode") === "true",
+      learning: JSON.parse(localStorage.getItem("learning") || "null") || {
+        lessons: [],
+        successfulTasks: 0,
+        failedTasks: 0,
+        preferences: {},
+        strategyVersion: 1
+      }
+    };
+
+    const $ = id => document.getElementById(id);
+    const chatEl = $("chat");
+    const workspace = $("workspace");
+
+    function save() {
+      localStorage.setItem("agentName", state.name);
+      localStorage.setItem("msgs", JSON.stringify(state.messages.slice(-40)));
+      localStorage.setItem("goals", JSON.stringify(state.goals));
+      localStorage.setItem("connectors", JSON.stringify(state.connectors));
+      localStorage.setItem("apiBase", state.apiBase);
+      localStorage.setItem("apiKey", state.apiKey);
+      localStorage.setItem("model", state.model);
+      localStorage.setItem("liveMode", String(state.liveMode));
+      localStorage.setItem("learning", JSON.stringify(state.learning));
+    }
+
+    function renderChat() {
+      chatEl.innerHTML = "";
+      state.messages.forEach(m => {
+        const wrap = document.createElement("div");
+        wrap.className = "msg " + m.role;
+        wrap.innerHTML = `<div class="meta">${m.role === "user" ? "You" : state.name}</div><div class="bubble"></div>`;
+        wrap.querySelector(".bubble").textContent = m.text;
+        chatEl.appendChild(wrap);
+      });
+      chatEl.scrollTop = chatEl.scrollHeight;
+      $("agentName").textContent = state.name;
+      $("avatarMark").textContent = state.name.slice(0,1).toUpperCase();
+    }
+
+    function renderSide() {
+      $("connectors").innerHTML = Object.entries(state.connectors).map(([k,v]) =>
+        `<div class="conn"><span>${k}</span><button class="toggle ${v?"on":""}" data-k="${k}"></button></div>`
+      ).join("");
+      $("goals").innerHTML = state.goals.map((g,i) =>
+        `<div class="card"><b>${g.done ? "✓ " : ""}${g.title}</b><div class="tiny">${g.done ? "done" : "in progress"}</div></div>`
+      ).join("") || `<div class="tiny">No goals yet.</div>`;
+      $("ideas").innerHTML = [
+        "Compare two flights and draft the booking email",
+        "Turn a recipe into a shopping list",
+        "Summarize last week’s notes into 5 actions"
+      ].map(t => `<div class="card"><b>${t}</b><button class="ghost" data-idea="${t}">Use idea</button></div>`).join("");
+    }
+
+    function logWork(lines) {
+      workspace.textContent = lines.join("\n");
+    }
+
+
+    function updateLearningUI() {
+      const el = $("learningStats");
+      if (el) el.textContent =
+        `${state.learning.lessons.length} lessons · ${state.learning.successfulTasks} successful tasks`;
+      const st = $("learningStatus");
+      if (st) st.textContent = `Learning: ${state.learning.lessons.length ? "ACTIVE" : "ON"}`;
+    }
+
+    function rememberLesson(prompt, result, success=true) {
+      const lesson = {
+        time: new Date().toISOString(),
+        prompt: prompt.slice(0, 500),
+        result: result.slice(0, 800),
+        success
+      };
+      state.learning.lessons.unshift(lesson);
+      state.learning.lessons = state.learning.lessons.slice(0, 100);
+      if (success) state.learning.successfulTasks++;
+      else state.learning.failedTasks++;
+      state.learning.strategyVersion++;
+      save();
+      updateLearningUI();
+    }
+
+    function learningContext() {
+      const recent = state.learning.lessons.slice(0, 8);
+      if (!recent.length) return "No previous lessons yet.";
+      return recent.map((x,i) =>
+        `${i+1}. ${x.success ? "SUCCESS" : "FAILED"}: ${x.prompt}\nOutcome: ${x.result}`
+      ).join("\n\n");
+    }
+
+    function setLiveButton() {
+      const b = $("liveMode");
+      if (!b) return;
+      b.textContent = state.liveMode ? "LIVE: ON" : "LIVE: OFF";
+      b.style.borderColor = state.liveMode ? "var(--ok)" : "var(--line)";
+    }
+
+    function localAgent(prompt) {
+      const on = Object.entries(state.connectors).filter(([,v]) => v).map(([k]) => k);
+      const connected = on.length ? on.join(", ") : "none";
+      if (/groc|shop|recipe|dinner|list/i.test(prompt)) {
+        state.goals.unshift({ title: "Dinner plan + grocery list", done: false });
+        return `Using connectors: ${connected}\n\nPlan\n1. Pick a 25-minute meal: lemon garlic pasta + salad.\n2. Grocery list: spaghetti, garlic, lemons, parsley, parmesan, olive oil, salad mix, cherry tomatoes.\n3. Tonight: boil pasta, sauté garlic, finish with lemon and cheese.\n\nI did not place an order because Shopping checkout is simulated. Toggle connectors, then ask me to “buy the list” to see the workspace flow.`;
+      }
+      if (/email|draft|outreach|write/i.test(prompt)) {
+        return `Draft (not sent — Email connector is ${state.connectors.Email ? "on" : "off"}):\n\nSubject: Quick follow-up\n\nHi there,\nFollowing up on our last note. I can do Thursday 2–4pm or Friday morning.\nIf easier, reply with a time that works.\n\nBest,\nYou\n\nSay “send it” and I’ll simulate the send in the workspace.`;
+      }
+      if (/goal|plan|week/i.test(prompt)) {
+        state.goals.unshift({ title: prompt.slice(0, 60), done: false });
+        return `I turned that into a working goal.\n\nThis week\n• Capture the outcome in one sentence\n• Block two 45-minute sessions\n• Produce one artifact (list, draft, or tracker)\n\nAsk me to build the artifact next.`;
+      }
+      return `Understood.\n\nConnected: ${connected}\nI can draft, plan, and simulate browser steps in the workspace on the right. Add an API key in Settings if you want live model replies instead of this on-device agent.\n\nNext useful move: give me a concrete task with a deadline.`;
+    }
+
+    async function reply(prompt) {
+      logWork([
+        "workspace boot",
+        "sandbox tab: about:agent",
+        "reading connectors…",
+        ...Object.entries(state.connectors).map(([k,v]) => `  ${k}: ${v ? "authorized" : "off"}`),
+        "planning steps…",
+        "writing response…"
+      ]);
+      if (state.liveMode && state.apiKey) {
+        try {
+          const res = await fetch(state.apiBase.replace(/\/$/, "") + "/chat/completions", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": "Bearer " + state.apiKey
+            },
+            body: JSON.stringify({
+              model: state.model,
+              messages: [
+                { role: "system", content:
+                  "You are Kayden Live, a persistent personal AI agent. Be direct, action-oriented and honest. " +
+                  "Use previous lessons to improve future answers. Do not claim external actions happened unless the connected service actually confirms them. " +
+                  "When a task succeeds, identify what worked and reuse it. When a task fails, diagnose the failure and avoid repeating it. " +
+                  "Continuously refine your response strategy from the user's feedback and task outcomes. " +
+                  "\n\nLEARNED HISTORY:\n" + learningContext()
+                },
+                ...state.messages.slice(-8).map(m => ({ role: m.role, content: m.text }))
+              ]
+            })
+          });
+          const data = await res.json();
+          const text = data.choices?.[0]?.message?.content || JSON.stringify(data, null, 2);
+          logWork([workspace.textContent, "model: done", "learning: lesson saved"]);
+          rememberLesson(prompt, text, true);
+          return text;
+        } catch (err) {
+          const fallback = "API error: " + err.message + "\n\nFalling back to the local agent.\n\n" + localAgent(prompt);
+            rememberLesson(prompt, fallback, false);
+            return fallback;
+        }
+      }
+      await new Promise(r => setTimeout(r, 500));
+      logWork([workspace.textContent, "local agent: done", state.liveMode ? "live mode needs an API key" : "offline mode", "learning: lesson saved"]);
+      const local = localAgent(prompt);
+      rememberLesson(prompt, local, false);
+      return local;
+    }
+
+    async function send(text) {
+      const prompt = (text ?? $("input").value).trim();
+      if (!prompt) return;
+      $("input").value = "";
+      state.messages.push({ role: "user", text: prompt });
+  
+
+    function renderApiPanel() {
+      $("apiKeyInput").value = state.apiKey || "";
+      $("apiBaseInput").value = state.apiBase || "https://api.openai.com/v1";
+      $("modelInput").value = state.model || "gpt-4o-mini";
+      $("apiStatus").textContent = state.apiKey
+        ? `API key: configured · ${state.liveMode ? "LIVE mode available" : "LIVE mode is OFF"}`
+        : "API key: not configured";
+    }
+
+    $("saveApi").onclick = () => {
+      state.apiKey = $("apiKeyInput").value.trim();
+      state.apiBase = $("apiBaseInput").value.trim() || "https://api.openai.com/v1";
+      state.model = $("modelInput").value.trim() || "gpt-4o-mini";
+      save();
+      renderApiPanel();
+      setLiveButton();
+      logWork([
+        "API settings saved",
+        state.apiKey ? "API key configured" : "API key cleared",
+        "base: " + state.apiBase,
+        "model: " + state.model
+      ]);
+    };
+
+    $("showApi").onclick = () => {
+      const input = $("apiKeyInput");
+      input.type = input.type === "password" ? "text" : "password";
+    };
+
+        $("liveMode").onclick = () => {
+      if (!state.apiKey) {
+        state.messages.push({ role: "assistant", text:
+          "LIVE mode is ready, but no API key is configured. Open Settings and add your API key, API base, and model. The key is stored only in this browser's localStorage." });
+        renderChat();
+        return;
+      }
+      state.liveMode = !state.liveMode;
+      save();
+      setLiveButton();
+      logWork([state.liveMode ? "LIVE MODE ENABLED" : "LIVE MODE DISABLED",
+               state.liveMode ? "network AI replies are active" : "offline/local replies are active"]);
+    };
+
+    $("clearLearning").onclick = () => {
+      state.learning = { lessons: [], successfulTasks: 0, failedTasks: 0, preferences: {}, strategyVersion: 1 };
+      save(); updateLearningUI();
+      logWork(["learning memory reset", "strategy version: 1"]);
+    };
+
+    $("exportLearning").onclick = () => {
+      const blob = new Blob([JSON.stringify(state.learning, null, 2)], {type:"application/json"});
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = "kayden-learning.json";
+      a.click();
+      URL.revokeObjectURL(a.href);
+    };
+
+    renderChat();
+      const out = await reply(prompt);
+      state.messages.push({ role: "assistant", text: out });
+      if (/send it|buy the list|mark done/i.test(prompt)) {
+        state.goals = state.goals.map((g,i) => i === 0 ? { ...g, done: true } : g);
+      }
+      save();
+  
+
+    function renderApiPanel() {
+      $("apiKeyInput").value = state.apiKey || "";
+      $("apiBaseInput").value = state.apiBase || "https://api.openai.com/v1";
+      $("modelInput").value = state.model || "gpt-4o-mini";
+      $("apiStatus").textContent = state.apiKey
+        ? `API key: configured · ${state.liveMode ? "LIVE mode available" : "LIVE mode is OFF"}`
+        : "API key: not configured";
+    }
+
+    $("saveApi").onclick = () => {
+      state.apiKey = $("apiKeyInput").value.trim();
+      state.apiBase = $("apiBaseInput").value.trim() || "https://api.openai.com/v1";
+      state.model = $("modelInput").value.trim() || "gpt-4o-mini";
+      save();
+      renderApiPanel();
+      setLiveButton();
+      logWork([
+        "API settings saved",
+        state.apiKey ? "API key configured" : "API key cleared",
+        "base: " + state.apiBase,
+        "model: " + state.model
+      ]);
+    };
+
+    $("showApi").onclick = () => {
+      const input = $("apiKeyInput");
+      input.type = input.type === "password" ? "text" : "password";
+    };
+
+        $("liveMode").onclick = () => {
+      if (!state.apiKey) {
+        state.messages.push({ role: "assistant", text:
+          "LIVE mode is ready, but no API key is configured. Open Settings and add your API key, API base, and model. The key is stored only in this browser's localStorage." });
+        renderChat();
+        return;
+      }
+      state.liveMode = !state.liveMode;
+      save();
+      setLiveButton();
+      logWork([state.liveMode ? "LIVE MODE ENABLED" : "LIVE MODE DISABLED",
+               state.liveMode ? "network AI replies are active" : "offline/local replies are active"]);
+    };
+
+    $("clearLearning").onclick = () => {
+      state.learning = { lessons: [], successfulTasks: 0, failedTasks: 0, preferences: {}, strategyVersion: 1 };
+      save(); updateLearningUI();
+      logWork(["learning memory reset", "strategy version: 1"]);
+    };
+
+    $("exportLearning").onclick = () => {
+      const blob = new Blob([JSON.stringify(state.learning, null, 2)], {type:"application/json"});
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = "kayden-learning.json";
+      a.click();
+      URL.revokeObjectURL(a.href);
+    };
+
+    renderChat();
+      renderSide();
+    }
+
+    $("send").onclick = () => send();
+    $("input").addEventListener("keydown", e => {
+      if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); }
+    });
+    $("newChat").onclick = () => {
+      state.messages = [{ role: "assistant", text: "New thread. What should I take off your plate?" }];
+      save(); renderChat();
+    };
+    $("runDemo").onclick = () => send("Plan a Saturday: farmer’s market, 5k, then dinner for two. Make a grocery list and a timeline.");
+
+    document.querySelector(".nav").addEventListener("click", e => {
+      const btn = e.target.closest("button");
+      if (!btn) return;
+      document.querySelectorAll(".nav button").forEach(b => b.classList.toggle("active", b === btn));
+      if (btn.dataset.tab === "settings") {
+        state.messages.push({ role: "assistant", text:
+`Settings (saved in this browser only)
+
+Agent name: ${state.name}
+API base: ${state.apiBase}
+Model: ${state.model}
+API key: ${state.apiKey ? "set" : "not set"}
+
+LIVE mode uses the configured OpenAI-compatible endpoint. For real email/calendar/shopping actions, a secure backend or connector is required; the browser-only version does not fake those actions.
+
+To change them, paste a line like:
+name: Nova
+key: sk-...
+base: https://api.groq.com/openai/v1
+model: llama-3.1-8b-instant` });
+    
+
+    function renderApiPanel() {
+      $("apiKeyInput").value = state.apiKey || "";
+      $("apiBaseInput").value = state.apiBase || "https://api.openai.com/v1";
+      $("modelInput").value = state.model || "gpt-4o-mini";
+      $("apiStatus").textContent = state.apiKey
+        ? `API key: configured · ${state.liveMode ? "LIVE mode available" : "LIVE mode is OFF"}`
+        : "API key: not configured";
+    }
+
+    $("saveApi").onclick = () => {
+      state.apiKey = $("apiKeyInput").value.trim();
+      state.apiBase = $("apiBaseInput").value.trim() || "https://api.openai.com/v1";
+      state.model = $("modelInput").value.trim() || "gpt-4o-mini";
+      save();
+      renderApiPanel();
+      setLiveButton();
+      logWork([
+        "API settings saved",
+        state.apiKey ? "API key configured" : "API key cleared",
+        "base: " + state.apiBase,
+        "model: " + state.model
+      ]);
+    };
+
+    $("showApi").onclick = () => {
+      const input = $("apiKeyInput");
+      input.type = input.type === "password" ? "text" : "password";
+    };
+
+        $("liveMode").onclick = () => {
+      if (!state.apiKey) {
+        state.messages.push({ role: "assistant", text:
+          "LIVE mode is ready, but no API key is configured. Open Settings and add your API key, API base, and model. The key is stored only in this browser's localStorage." });
+        renderChat();
+        return;
+      }
+      state.liveMode = !state.liveMode;
+      save();
+      setLiveButton();
+      logWork([state.liveMode ? "LIVE MODE ENABLED" : "LIVE MODE DISABLED",
+               state.liveMode ? "network AI replies are active" : "offline/local replies are active"]);
+    };
+
+    $("clearLearning").onclick = () => {
+      state.learning = { lessons: [], successfulTasks: 0, failedTasks: 0, preferences: {}, strategyVersion: 1 };
+      save(); updateLearningUI();
+      logWork(["learning memory reset", "strategy version: 1"]);
+    };
+
+    $("exportLearning").onclick = () => {
+      const blob = new Blob([JSON.stringify(state.learning, null, 2)], {type:"application/json"});
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = "kayden-learning.json";
+      a.click();
+      URL.revokeObjectURL(a.href);
+    };
+
+    renderChat();
+      }
+    });
+
+    $("connectors").addEventListener("click", e => {
+      const t = e.target.closest(".toggle");
+      if (!t) return;
+      state.connectors[t.dataset.k] = !state.connectors[t.dataset.k];
+      save(); renderSide();
+      logWork(["connector updated", t.dataset.k + ": " + (state.connectors[t.dataset.k] ? "on" : "off")]);
+    });
+
+    $("ideas").addEventListener("click", e => {
+      const b = e.target.closest("[data-idea]");
+      if (b) send(b.dataset.idea);
+    });
+
+    $("input").addEventListener("input", () => {
+      const v = $("input").value;
+      const set = (k, val) => { if (val) state[k] = val.trim(); };
+      if (/^name:/im.test(v) || /^key:/im.test(v)) {
+        v.split("\n").forEach(line => {
+          const [k, ...rest] = line.split(":");
+          const val = rest.join(":").trim();
+          if (/name/i.test(k)) set("name", val);
+          if (/key/i.test(k)) state.apiKey = val;
+          if (/base/i.test(k)) state.apiBase = val;
+          if (/model/i.test(k)) state.model = val;
+        });
+        save();
+      }
+    });
+
+
+
+    function renderApiPanel() {
+      $("apiKeyInput").value = state.apiKey || "";
+      $("apiBaseInput").value = state.apiBase || "https://api.openai.com/v1";
+      $("modelInput").value = state.model || "gpt-4o-mini";
+      $("apiStatus").textContent = state.apiKey
+        ? `API key: configured · ${state.liveMode ? "LIVE mode available" : "LIVE mode is OFF"}`
+        : "API key: not configured";
+    }
+
+    $("saveApi").onclick = () => {
+      state.apiKey = $("apiKeyInput").value.trim();
+      state.apiBase = $("apiBaseInput").value.trim() || "https://api.openai.com/v1";
+      state.model = $("modelInput").value.trim() || "gpt-4o-mini";
+      save();
+      renderApiPanel();
+      setLiveButton();
+      logWork([
+        "API settings saved",
+        state.apiKey ? "API key configured" : "API key cleared",
+        "base: " + state.apiBase,
+        "model: " + state.model
+      ]);
+    };
+
+    $("showApi").onclick = () => {
+      const input = $("apiKeyInput");
+      input.type = input.type === "password" ? "text" : "password";
+    };
+
+        $("liveMode").onclick = () => {
+      if (!state.apiKey) {
+        state.messages.push({ role: "assistant", text:
+          "LIVE mode is ready, but no API key is configured. Open Settings and add your API key, API base, and model. The key is stored only in this browser's localStorage." });
+        renderChat();
+        return;
+      }
+      state.liveMode = !state.liveMode;
+      save();
+      setLiveButton();
+      logWork([state.liveMode ? "LIVE MODE ENABLED" : "LIVE MODE DISABLED",
+               state.liveMode ? "network AI replies are active" : "offline/local replies are active"]);
+    };
+
+    $("clearLearning").onclick = () => {
+      state.learning = { lessons: [], successfulTasks: 0, failedTasks: 0, preferences: {}, strategyVersion: 1 };
+      save(); updateLearningUI();
+      logWork(["learning memory reset", "strategy version: 1"]);
+    };
+
+    $("exportLearning").onclick = () => {
+      const blob = new Blob([JSON.stringify(state.learning, null, 2)], {type:"application/json"});
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = "kayden-learning.json";
+      a.click();
+      URL.revokeObjectURL(a.href);
+    };
+
+    renderChat();
+    renderSide();
+    setLiveButton();
+    updateLearningUI();
+    renderApiPanel();
+  </script>
+</body>
+</html>
